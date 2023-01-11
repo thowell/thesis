@@ -223,7 +223,7 @@ To be amenable to fast solvers for symmetric linear systems, the nominal KKT sys
 		\bar{L}_z \\
 	\end{bmatrix}, \label{calipso_search_direction_xyz}
 \end{align} 
-using Schur complements \cite{boyd2004convex}, where $\bar{L}_y = L_y + \frac{1}{\rho + \epsilon_p} L_r$, $\bar{L}_z = L_z + (P_s + \epsilon_p \bar{P}_t)^{-1}(\bar{P}_t L_s + L_t)$, and $\bar{P}_t = P_t - \epsilon_d I$. The remaining search directions,
+using Schur complements \cite{boyd2004convex}, where $\bar{L}_y = L_y + \frac{1}{\rho + \epsilon_p} L_r$, $\bar{L}_z = L_z + (P_s + \epsilon_p \bar{P}_t)^{-1}(\bar{P}_t L_s + L_t)$, and $\bar{P}_t = P_t - \epsilon_d I$. The remaining search directions:
 \begin{align} 
 	\Delta r &= (\Delta y + L_r) / (\rho + \epsilon_p), \label{calipso_search_direction_r}\\
 	\Delta s &= (P_s + \epsilon_p \bar{P}_t)^{-1} (\bar{P}_t \Delta z + \bar{P}_t L_s + L_r), \label{calipso_search_direction_s}\\
@@ -246,16 +246,16 @@ and violation metric:
 \begin{equation} 
 	\eta = \|(g(x) - r, h(x) - s) \|_1 / (m + p). \label{slack_constraint_violation}
 \end{equation}
-The step size is further decremented until either the merit or violation metric is decreased \cite{wachter2005line}. A filter, 
+The step size is further decremented until either the merit or violation metric is decreased \cite{wachter2005line}. A filter: 
 \begin{equation}
 \mathcal{F} = \{(\varphi^{(1)}, \eta^{(1)}), \dots, (\varphi^{(p)}, \eta^{(p)})\},
 \end{equation}
 comprises a set of $p$ previously accepted points. 
-A candidate point must satisfy, 
+A candidate point must satisfy:
 \begin{equation} 
   \hat{\varphi} < \varphi^{(i)} \, \lor \, \hat{\eta} < \eta^{(i)}, \quad i = 1, \dots, v,
 \end{equation}
-for each previous point in the filter. Then, the Armijo condition \cite{nocedal2006numerical},
+for each previous point in the filter. Then, the Armijo condition \cite{nocedal2006numerical}:
 \begin{equation} 
   \hat{\varphi} < \varphi + \epsilon_a \alpha ( \varphi_x^T \Delta x + \varphi_r^T \Delta r + \varphi_s^T \Delta s), \label{calipso_armijo}
 \end{equation}
@@ -283,15 +283,15 @@ Step sizes $\alpha$ for cone-variable updates are selected to ensure that the fr
 is satisfied for a cone. The parameter $\tau \in [0, 1]$ helps prevent cone variables from reaching their respective boundaries too quickly and is increased during outer updates. The fraction-to-the-boundary value is increased during each outer update.
 
 \subsection{Iterative refinement} \label{calipso_iterative_refinement_appendix}
-A drawback to computing search directions using the symmetric system is the potential worsening of the numerical conditioning of the system. As a result, the error, 
+A drawback to computing search directions using the symmetric system is the potential worsening of the numerical conditioning of the system. As a result, the error:
 \begin{equation} 
 	e = R + J \Delta w, \label{calipso_search_direction_error}
 \end{equation}
-will be nonzero. To account for this, we correct the search direction by performing iterative refinement \cite{nocedal2006numerical}. A linear system, 
+will be nonzero. To account for this, we correct the search direction by performing iterative refinement \cite{nocedal2006numerical}. A linear system:
 \begin{equation}
 	J \Delta e = -e,
 \end{equation}
-is solved using the error as the residual in order to compute a correction $\Delta e$. This correction is then utilized to update the search direction, 
+is solved using the error as the residual in order to compute a correction $\Delta e$. This correction is then utilized to update the search direction:
 \begin{equation} 
 	\Delta w \leftarrow \Delta w + \Delta e. \label{calipso_search_direction_correction}
 \end{equation}
@@ -310,7 +310,7 @@ The updates are clipped to prevent unnecessarily small/large values.
 
 \subsection{Initialization}
 
-Given an initial guess for the primal variables $x_{\mbox{init}}$, the solver's variables are initialized with, 
+Given an initial guess for the primal variables $x_{\mbox{init}}$, the solver's variables are initialized with:
 \begin{equation} 
   r = g(x_{\mbox{init}}), \,
   s_{\mbox{ineq}} = \mathbf{1}_q, \,
@@ -521,7 +521,7 @@ The policy weights are initialized with all ones and we compare the performance 
 
 \begin{table}[H] 
 	\centering
-	\caption[Numerical results for predictive control auto-tuning]{Comparison of tracking error between open-loop and both untuned and auto-tuned model predictive control policies in simulation. By differentiating through CALIPSO, gradient-based optimizing is able to rapidly improve controller performance without requiring designer input.}
+	\caption[Numerical results for predictive control auto-tuning]{Comparison of tracking error between open-loop and both untuned and auto-tuned model predictive control policies in simulation. By differentiating through CALIPSO, gradient-based optimization is able to rapidly improve controller performance without requiring designer input.}
 	\begin{tabular}{c c c c}
 		\toprule
 		&
@@ -579,7 +579,7 @@ The following problem:
 highlights the Maratos effect \cite{nocedal2006numerical}, which often requires a solver to perform second-order corrections. CALIPSO's use of an augmented Lagrangian for the equality constraints allows for the omission of second-order corrections, allowing convergence on this problem from a starting point $x_{\mbox{init}} = (2, 1)$ to the optimal solution $x^* = (1, 0)$ in 6 iterations.
 
 \paragraph{Complementarity problem.}
-Challenging complementarity-constrained problems such as, 
+Challenging complementarity-constrained problems such as:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{x}{\mbox{minimize }} & (x_1 - 5)^2 + (2x_2 + 1)^2 \\

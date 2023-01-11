@@ -33,7 +33,7 @@ In this section we provide background on optimizing inequality-constrained probl
 \paragraph{Inequality-constrained augmented Lagrangian method.}
 Classically, augmented Lagrangian methods are utilized to handle equality-constrained optimization problems \eqref{intro_equality_constrained}. However, with small modifications to the algorithm it is possible to also handle inequality constraints \cite{toussaint2014novel}. 
 
-For mixed problems, 
+For mixed problems:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{x}{\mbox{minimize }}  & c(x) \\
@@ -45,11 +45,11 @@ we formulate an augmented Lagrangian with indicator penalties:
 \begin{equation}
 L_{\mathcal{A}}(x; \lambda, \rho) = c(x) + \lambda^T g(x)  +\frac{1}{2}g(x)^T I_{\rho} g(x), \label{altro_augmented_lagrangian_indicator}
 \end{equation}
-where $I_{\rho}$ is a diagonal matrix defined as,
+where $I_{\rho}$ is a diagonal matrix defined as:
 \begin{equation}
 	I_{\rho}^{(i)} = 
 	\begin{cases} 
-		0 & \text{if } g^{(i)}(x) < 0 \land \lambda^{(i)} = 0 \land \, i \in \mbox{\textbf{inequality}}\\
+		0 & \text{if } g^{(i)}(x) < 0 \land \lambda^{(i)} = 0 \land \, i \in \mbox{\textbf{inequality}},\\
 		\rho & \text{otherwise} .
 	\end{cases}
 \end{equation}
@@ -78,7 +78,7 @@ where $F \in \mathbf{R}^{2n \times n}$ is the matrix factorized by a QR decompos
 \begin{equation}
 \sqrt{A + B} = R,
 \end{equation} 
-is the solution. We define,
+is the solution. We define:
 \begin{equation}
 	\sqrt{A + B} = \mbox{\textbf{QR}}\Big(\begin{bmatrix} \sqrt{A} \\ \sqrt{B} \end{bmatrix}\Big).
 \end{equation}
@@ -113,7 +113,7 @@ The problem \eqref{altro_problem} is reformulated for the augmented Lagrangian m
 		& (x_1 \, \text{given}), \label{altro_augmented_lagrangian_problem}
 	\end{array}
 \end{equation}
-where,
+where:
 \begin{align}
 	\ell_t(x_t, u_t; \lambda_t, \rho) &= c_t(x_t, u_t) + \lambda_t^T g_t(x_t, u_t) + \frac{1}{2} g_t(x_t, u_t)^T I_{\rho} g_t(x_t, u_t), \label{stage_altro_augmented_lagrangian}\\
 	\ell_T(x_T; \lambda_T, \rho) &= c_T(x_T) + \lambda_T^T g_T(x_T) + \frac{1}{2} g_T(x_T)^T I_{\rho} g_T(x_T). \label{terminal_altro_augmented_lagrangian}
@@ -138,7 +138,7 @@ To help mitigate this issue, we introduce a numerically robust backward pass ins
 \begin{equation}
 	S_t = \sqrt{P_t}. \\
 \end{equation}
-At the final time step,
+At the final time step:
 \begin{align}
 	S_T = \mbox{\textbf{cholesky}}(W_T),
 \end{align}
@@ -148,7 +148,7 @@ P_t = \begin{bmatrix} I \\ K_t \end{bmatrix}^T
 	  \begin{bmatrix} X_t & Y_t^T \\ Y_t & Z_t \end{bmatrix}
 	  \begin{bmatrix} I \\ K_t \end{bmatrix},
 \end{equation}
-represented here in matrix form, where 
+represented here in matrix form, where:
 \begin{align}
 	X_t = W_t + A_t^T P_{t+1} A_t, \\
 	Y_t = H_t + A_t^T P_{t+1} B_t, \\
@@ -163,35 +163,35 @@ to depend on the square-root matrix from the the following (i.e., $t+1$) time st
 		= \begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix}^T 
 		   \begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix},
 \end{equation}
-where, 
+where:
 \begin{align}
 	\Psi_t & = \sqrt{X_t} = \mbox{\textbf{cholesky}}(W_t) + S_{t+1} A_t, \\
 	\Lambda_t &= \Psi_t^{-T} Y_t, \\
 	\Gamma_t &= \sqrt{Z_t - Y_t^T X_t^{-1} Y_t} =  \mbox{\textbf{DD}}\Big(\mbox{\textbf{cholesky}}(R_t) + S_{t+1} B_t, \Psi_t^{-T} Y_t \Big).
 \end{align}
-The square-root update is then, 
+The square-root update is then:
 \begin{equation}
 	S_t = \mbox{\textbf{QR}}\Big(\begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix} \Big),
 \end{equation}
 and replaces \eqref{intro_cost_to_go_matrix}.
 
 \subsection{Infeasible initialization}
-Desired state trajectories can often be identified (e.g., from sampling-based planners or expert knowledge), whereas determining a sequence of actions that will produce a desired state trajectory is often challenging. Infeasible initialization is enabled by modifying the nominal discrete-time dynamics $d_t : \mathbf{R}^{n} \times \mathbf{R}^{m_t} \rightarrow \mathbf{R}^{n_{t+1}}$,
+Desired state trajectories can often be identified (e.g., from sampling-based planners or expert knowledge), whereas determining a sequence of actions that will produce a desired state trajectory is often challenging. Infeasible initialization is enabled by modifying the nominal discrete-time dynamics $d_t : \mathbf{R}^{n} \times \mathbf{R}^{m_t} \rightarrow \mathbf{R}^{n_{t+1}}$:
 \begin{equation}
 	x_{t+1} = f_t(x_t,u_t) = d_t(x_t, v_t) + s_t \label{altro_slack_dynamics},
 \end{equation}
-with slacks $s_t \in \mathbf{R}^{n_t}$ to make the system artificially fully actuated, by augmenting the actions at each time step such that $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + n_{t+1}}$. The dynamics Jacobians are then,
+with slacks $s_t \in \mathbf{R}^{n_t}$ to make the system artificially fully actuated, by augmenting the actions at each time step such that $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + n_{t+1}}$. The dynamics Jacobians are then:
 \begin{align}
 	[f_t]_x &= [d_t]_x, \\
 	[f_t]_u &= \begin{bmatrix} [d_t]_v & I \end{bmatrix}.
 \end{align}
-Given a trajectory, $\hat{z} = (\hat{x}_1, \hat{v}_1, \dots, \hat{x}_T)$, the slacks at each time step are initialized as,
+Given a trajectory, $\hat{z} = (\hat{x}_1, \hat{v}_1, \dots, \hat{x}_T)$, the slacks at each time step are initialized as:
 \begin{equation}
 	s_t = \hat{x}_{t+1} - d_t(\hat{x}_t, \hat{v}_t), \label{altro_slack_actions}
 \end{equation}
-the difference between the nominal dynamics and the provided trajectory. Additionally, constraints, 
+the difference between the nominal dynamics and the provided trajectory. Additionally, constraints:
 \begin{equation}
-	g_t(x_t, u_t) = s_t = 0, \quad t = 1, \dots, T-1
+	g_t(x_t, u_t) = s_t = 0, \quad t = 1, \dots, T-1,
 \end{equation}
 are added to ensure that the algorithm converges to solutions for the nominal dynamics. Importantly, due to the properties of the augmented Lagrangian method, these constraints will be satisfy in the limit, allowing the optimizer to iteratively reduce the infeasibility and converge to solutions for the nominal dynamics.
 
@@ -202,14 +202,14 @@ The dynamics are formulated as:
 \begin{equation}
 	x_{t+1} = f_t(x_t, u_t) = \begin{bmatrix} d_t(y_t, u_t) \\ s_t \end{bmatrix} \label{altro_free_time_dynamics},
 \end{equation}
-where the actions, $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + 1}$, are augmented with an additional variable, $s_t = \sqrt{h_t} \in \mathbf{R}$, representing the square-root of the time step, ensuring positive values; and an augmented state, $x_t = (y_t, s_{t-1}) \quad t = 2, \dots T$, that propagates slack variables along the trajectory. The dynamics Jacobians are then, 
+where the actions, $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + 1}$, are augmented with an additional variable, $s_t = \sqrt{h_t} \in \mathbf{R}$, representing the square-root of the time step, ensuring positive values; and an augmented state, $x_t = (y_t, s_{t-1}) \quad t = 2, \dots T$, that propagates slack variables along the trajectory. The dynamics Jacobians are then:
 \begin{align}
 	[f_t]_x &= \begin{bmatrix} [d_t]_y \\ 0 \end{bmatrix}, \\
 	[f_t]_u &= \begin{bmatrix} [d_t]_v & [d_t]_s \\ 0 & 1 \end{bmatrix}.
 \end{align}
-Additional constraints are added to enforce equality between time steps,
+Additional constraints are added to enforce equality between time steps:
 \begin{equation}
-	g_t(x_t, u_t) = x_t^{(s)} - u_t^{(s)} = 0 \quad t = 2, \dots, T,
+	g_t(x_t, u_t) = x_t^{(s)} - u_t^{(s)} = 0, \quad t = 2, \dots, T,
 \end{equation}
 to prevent the optimizer from exploiting time-discretization errors in the system dynamics.
 
@@ -223,7 +223,7 @@ The primary phase of ALTRO solves problems to low or medium precision, with resp
 		\mbox{subject to } & \bar{E}(z) = 0, \\
 	\end{array} \label{altro_solution_polishing}
 \end{equation}
-over the objective space, 
+over the objective space:
 \begin{equation}
 	J = \begin{bmatrix} 
 			[c_1]_{xx} & [c_1]_{xu} & & \\ 
@@ -231,7 +231,7 @@ over the objective space,
 			& & \ddots & \\ & & & [c_T]_{xx} 
 		\end{bmatrix},
 \end{equation}
-subject to the set of active constraints, include the dynamics, equality, and active inequality constraints,
+subject to the set of active constraints, include the dynamics, equality, and active inequality constraints:
 \begin{equation}
 	E(z) = \begin{bmatrix} 
 			f_1(x_1, u_1) - x_{t+1} \\ 
@@ -250,7 +250,7 @@ We iteratively perform the following update:
 	\Delta z &= J^{-1} \bar{E}_z^T (\bar{E}_{z} J^{-1} \bar{E}_{z}^T)^{-1} \bar{E}_{z}, \\
 	z &\leftarrow z + \alpha \Delta z,
 \end{align}
-using a line search procedure on the parameter $\alpha \in [0, 1]$ to ensure that,
+using a line search procedure on the parameter $\alpha \in [0, 1]$ to ensure that:
 \begin{equation}
 	\|\bar{E}(z + \alpha \Delta z)\|_{\infty} < \|\bar{E}(z)\|_{\infty},
 \end{equation} 

@@ -61,14 +61,14 @@ Finally, we note that many of the approaches outlined in this section---includin
 This section provides brief reviews of the discrete-time stochastic optimal-control problem and the unscented transform, as well as a survey of related solution approaches.
 
 \subsection{Discrete-time stochastic optimal control}
-We formulate the discrete-time stochastic optimal-control problem as, 
+We formulate the discrete-time stochastic optimal-control problem as: 
 \begin{align}
 	& \underset{\Theta}{\mbox{minimize}} && \mathbf{E} [ J(\tau) ] \label{dpo_policy_opt}\\
 	& \mbox{subject to} && x_{t+1} = f_t(x_t,u_t, w_t),&& t = 1,\dots,T-1, \notag\\
 	& && u_t = \pi_t(x_t, \theta_t), && t = 1,\dots,T-1, \notag\\
 	& && \mathbf{Prob} (c_j(\tau) > 0 ) \leq \epsilon_j, && j = 1,\dots,k. \notag
 \end{align}
-The system's state, $x_t \in \mathbf{R}^{n}$, and control inputs, $u_t \in \mathbf{R}^{m}$, define a trajectory, 
+The system's state, $x_t \in \mathbf{R}^{n}$, and control inputs, $u_t \in \mathbf{R}^{m}$, define a trajectory:
 \begin{equation}
 \tau = (x_1,\dots,x_T,u_1,\dots,u_{T-1}) \in \mathbf{R}^z,
 \end{equation}
@@ -86,34 +86,34 @@ The unscented transform is a procedure for propagating a unimodal probability di
 	\label{dpo_unscented}
 \end{figure}
 
-Assuming a unimodal state distribution with mean $\mu_t \in \mathbf{R}^n$, covariance $P_t \in \mathbf{S}_{++}^{n}$, and an uncorrelated zero-mean disturbance distribution with covariance $D_t \in \mathbf{S}_{++}^{d}$, we generate $N = 2(n + d)$ sigma points,
+Assuming a unimodal state distribution with mean $\mu_t \in \mathbf{R}^n$, covariance $P_t \in \mathbf{S}_{++}^{n}$, and an uncorrelated zero-mean disturbance distribution with covariance $D_t \in \mathbf{S}_{++}^{d}$, we generate $N = 2(n + d)$ sigma points:
 \begin{equation}
 	\begin{bmatrix} x_t^{(i)} \\ w_t^{(i)} \end{bmatrix} \leftarrow \begin{bmatrix} \mu_t \\ 0 \end{bmatrix} \pm \beta_t \, \mathbf{col} \Bigg( \sqrt{\begin{bmatrix}P_t & 0 \\ 0 & D_t \end{bmatrix}} \Bigg).
 	\label{dpo_sigma_point_update}
 \end{equation}
 These samples, denoted with superscripts, are constructed using the column vectors of a square root of the joint covariance matrix. In this work we use the principle (symmetric) matrix square root, although other decompositions, such as the Cholesky factorization, could be employed. The parameter $\beta_t \in \mathbf{R}_{+}$ controls the spread of the samples around the mean. For a Gaussian distribution propagated through linear dynamics, the unscented transform will exactly recover the updated distribution. For nonlinear systems, the selection of $\beta$ can affect performance, and has been explored extensively in the literature on unscented Kalman filters~\cite{menegaz2015systematization}.
 
-Sample points are first propagated through the policy,
+Sample points are first propagated through the policy:
 \begin{equation}
 	u_t^{(i)} = \pi_t(x_t^{(i)}), \label{dpo_sample_propagate_control}
 \end{equation}
-and then sample dynamics,
+and then sample dynamics:
 \begin{equation}
 	x_{t+1}^{(i)} = f_t^{(i)}(x_t^{(i)}, u_t^{(i)}, w_t^{(i)}), \label{dpo_sample_propagate}
 \end{equation}
-in order to compute a sample mean,
+in order to compute a sample mean:
 \begin{equation}
 	\mu_{t+1} = \frac{1}{N} \sum\limits_{i=1}^{N} x_{t+1}^{(i)}, \label{dpo_sample_mean}
 \end{equation}
-and sample covariance,
+and sample covariance:
 \begin{equation}
 	P_{t+1} = \frac{1}{2 \beta_t^2}\sum\limits_{i=1}^{N} (x_{t+1}^{(i)} - \mu_{t+1})(x_{t+1}^{(i)} - \mu_{t+1})^T, \label{dpo_sample_covariance}
 \end{equation}
-for the state distribution at the next time step. Similarly, we compute a sample mean,
+for the state distribution at the next time step. Similarly, we compute a sample mean:
 \begin{equation}
 	\nu_t = \frac{1}{N} \sum\limits_{i=1}^{N} u_t^{(i)}, \label{dpo_sample_mean_control}
 \end{equation}
-and sample covariance,
+and sample covariance:
 \begin{equation}
 	L_t = \frac{1}{2 \beta_t^2}\sum\limits_{i=1}^{N} (u_t^{(i)} - \nu_t)(u_t^{(i)} - \nu_t)^T, \label{dpo_sample_covariance_control}
 \end{equation}
@@ -123,11 +123,11 @@ for the control inputs at the current time step.
 We now present the Direct Policy Optimization algorithm. DPO makes several strategic approximations to the discrete-time stochastic optimal-control problem: First, the expectation of the objective in \eqref{dpo_policy_opt} is approximated using the unscented transform. Second, DPO explicitly optimizes a reference trajectory, $\bar{\tau}$, and $N$ sample trajectories, $\tau^{(i)}$, in order to approximate the stochastic dynamics. We use an overbar to denote reference or nominal quantities and superscripts to denote sample indices throughout the chapter. Next, we seek a local feedback policy that is valid in the neighborhood of the reference trajectory. Finally, chance constraints are approximately enforced by applying inequality constraints to a set of sample points chosen from level sets of the state and input distributions. Using these approximations, we formulate an optimization problem that is amenable to large-scale quasi-Newton solvers.
 
 \subsection{Objective}
-DPO minimizes the following objective,
+DPO minimizes the following objective:
 \begin{equation} \label{dpo_cost}
 	J(\bar{\tau}) + \mathbf{E} [ S(\bar{\tau}, \tau) ] ,
 \end{equation}
-with cost function $J$ applied to the reference trajectory and a quadratic tracking-cost function,
+with cost function $J$ applied to the reference trajectory and a quadratic tracking-cost function:
 \begin{equation}
 	\begin{aligned}
 		S(\bar{\tau},\tau) =&~(x_T - \bar{x}_T)^T Q_T (x_T - \bar{x}_T) \\ 
@@ -136,7 +136,7 @@ with cost function $J$ applied to the reference trajectory and a quadratic track
 		\label{dpo_sample_cost}
 	\end{aligned}
 \end{equation}
-$S : \mathbf{R}^z \times \mathbf{R}^z \rightarrow \mathbf{R}$, with $Q_t \in \mathbf{S}_{+}^n$ and $R_t \in \mathbf{S}_{+}^m$, that penalizes deviations from the reference trajectory under disturbances. After  simple manipulations, we can write \eqref{dpo_cost} in terms of the quantities introduced in Sec. \ref{dpo_ut},
+$S : \mathbf{R}^z \times \mathbf{R}^z \rightarrow \mathbf{R}$, with $Q_t \in \mathbf{S}_{+}^n$ and $R_t \in \mathbf{S}_{+}^m$, that penalizes deviations from the reference trajectory under disturbances. After  simple manipulations, we can write \eqref{dpo_cost} in terms of the quantities introduced in Sec. \ref{dpo_ut}:
 \begin{align}
 	\mathbf{E} [ (x_t - \bar{x}_t)^T Q_t (x_t - \bar{x}_t) ] &= \mathbf{Tr}(P_t Q_t) + (\mu_t - \bar{x}_t)^T Q_t (\mu_t - \bar{x}_t),
 	\label{dpo_state_dev} \\
@@ -166,7 +166,7 @@ Initial sample states and disturbance inputs are deterministically drawn from no
 \end{algorithm}	
 
 \subsection{Feedback policy}
-Each sample trajectory is subject to a policy constraint,
+Each sample trajectory is subject to a policy constraint:
 \begin{equation}
 	u_t^{(i)} = \pi_t(x_t^{(i)},\bar{x}_t,\bar{u}_t,\theta_t), \label{dpo_policy_constraint}
 \end{equation}
@@ -190,11 +190,11 @@ Additional constraints, for example, conditions on the policy parameters or traj
 \section{Results}\label{dpo_results}
 The following examples were implemented in Julia, used SNOPT to optimize (\ref{dpo}), and were performed on a laptop computer with an Intel Core i7-7600U 2.80 GHz CPU and 16 GB of memory.
 
-To verify the performance of DPO, optimized policies are simulated at ten times the sample rate used during optimization, systems are simulated with explicit third-order Runge-Kutta integration, zero-order-hold control interpolation, cubic spline state interpolation, and are subject to additive zero-mean Gaussian noise. TO and DPO utilize the same objective for the reference trajectory. Throughout, the tracking cost (\ref{dpo_sample_cost}) and LQR policies have the same weights and, unless specified, $\beta = 1$. The reported tracking error is computed using the tracking cost (\ref{dpo_sample_cost}) for a single trajectory. During optimization we employ implicit midpoint integration and use discrete dynamics with additive noise,
+To verify the performance of DPO, optimized policies are simulated at ten times the sample rate used during optimization, systems are simulated with explicit third-order Runge-Kutta integration, zero-order-hold control interpolation, cubic spline state interpolation, and are subject to additive zero-mean Gaussian noise. TO and DPO utilize the same objective for the reference trajectory. Throughout, the tracking cost (\ref{dpo_sample_cost}) and LQR policies have the same weights and, unless specified, $\beta = 1$. The reported tracking error is computed using the tracking cost (\ref{dpo_sample_cost}) for a single trajectory. During optimization we employ implicit midpoint integration and use discrete dynamics with additive noise:
 \begin{equation}
 	x^{(i)}_{t+1} = f^{(i)}_t(x^{(i)}_t,u^{(i)}_t) + w^{(i)}_t.
 	\label{dpo_dynamics_add_noise}
-\end{equation} We find that additive noise with state augmentation and different sample models is quite general and capable of capturing interesting dynamical effects. Policies use linear feedback to track the reference trajectory,
+\end{equation} We find that additive noise with state augmentation and different sample models is quite general and capable of capturing interesting dynamical effects. Policies use linear feedback to track the reference trajectory:
 \begin{equation}
 	u^{(i)}_t = \bar{u}_t - \theta_t (x^{(i)}_t - \bar{x}_t). \label{dpo_linear_policy}
 \end{equation}
@@ -204,7 +204,7 @@ Our implementation of DPO and additional details for each example are available 
 \end{center}
 
 \subsection{Double integrator}
-We first demonstrate that DPO recovers the LQR solution for double integrator dynamics,
+We first demonstrate that DPO recovers the LQR solution for double integrator dynamics:
 \begin{equation}
 	x_{t+1} = \begin{bmatrix} 1 & 1 \\ 0 & 1 \end{bmatrix}x_t + \begin{bmatrix} 0 \\ 1 \end{bmatrix}u_t + w_t, \label{dpo_double_integrator_dynamics}
 \end{equation}
@@ -213,7 +213,7 @@ with $n = 2$ states, $m = 1$ controls, and $d = 2$ disturbances, regulated to th
 The decision variables are initialized by uniformly sampling between $-1$ and $1$ for 1000 trials. The maximum, mean, and standard deviations of the normalized error between the DPO policies and the exact LQR solution computed with the Riccati equation are near the tolerance of the solver: 2.4e-5, 4.0e-7, 8.5e-7, respectively---reinforcing that the approximations made in the derivation of DPO are exact in the LQG case. Additionally, the second term in \eqref{dpo_state_dev} is zero, demonstrating that the separation principle holds for this problem.
 
 \subsection{Car}
-We plan a collision-free path through four obstacles for an autonomous car, modeled as a unicycle~\cite{lavalle2006planning},
+We plan a collision-free path through four obstacles for an autonomous car, modeled as a unicycle~\cite{lavalle2006planning}:
 \begin{equation}
 	\begin{bmatrix} \dot{y} \\ \dot{z} \\ \dot{\phi} \end{bmatrix} = \begin{bmatrix} v \cdot \text{cos}(\phi) \\ v \cdot \text{sin}(\phi) \\ \omega \end{bmatrix}. \label{dpo_unicycle_dynamics}
 \end{equation}

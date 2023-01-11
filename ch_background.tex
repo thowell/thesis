@@ -56,7 +56,7 @@ The globally optimal solution is represented as the following feedback policy:
 \begin{equation}
 	u = \pi_t(x) = K_t x + k_t, \label{intro_lqr_policy}
 \end{equation}
-where,
+where:
 \begin{align}
 	K_t &= -(R_t + B_t^T P_{t+1} B_t)^{-1} (H_t^T + B_t^T P_{t+1} A_t), \label{intro_lqr_feedback} \\
 	k_t &= -(R_t + B_t^T P_{t+1} B_t)^{-1} (r_t + B_t^T P_{t+1} C_t + B_t^T p_{t+1}). \label{intro_lqr_affine}
@@ -70,7 +70,7 @@ First, we assume that the value function has a quadratic form:
 \end{equation}
 with $P_t \in \mathbf{S}_{++}^{n_t}$ and $p_t \in \mathbf{R}^{n_t}$. At the final time step $T$ the value function is determined:
 \begin{align}
-	P_T &= W_T \\
+	P_T &= W_T, \\
 	p_t &= w_T.
 \end{align}
 Now, in a backward fashion, the value function is computed at preceding time steps: 
@@ -137,11 +137,11 @@ Non-smooth rigid-body dynamics with contact can be posed as a complementarity pr
 \begin{equation} 
 	\phi(q) \geq 0. \label{intro_sdf}
 \end{equation}
-An impact impulse with magnitude $\gamma \in \mathbf{R}$ is applied at the contact points in the direction of the surface normal in order to enforce \eqref{intro_sdf} and prevent interpenetration. A non-negative constraint, 
+An impact impulse with magnitude $\gamma \in \mathbf{R}$ is applied at the contact points in the direction of the surface normal in order to enforce \eqref{intro_sdf} and prevent interpenetration. A non-negative constraint:
 \begin{align}
 	\gamma \geq 0, \label{intro_impact_inequality}
 \end{align}
-enforces physical behavior that an impulse is repulsive (e.g., the floor does not attract bodies), and the complementarity condition,
+enforces physical behavior that an impulse is repulsive (e.g., the floor does not attract bodies), and the complementarity condition:
 \begin{align}
 	\gamma \cdot \phi(q) = 0, \label{intro_impact_complementarity}
 \end{align}
@@ -156,7 +156,7 @@ encodes switching behavior, e.g., enforcing zero force if the body is not in con
 	\caption[Linearized and second-order friction-cone comparison]{Friction-cone comparison. Linearized double-parameterized (left) and nonlinear second-order (right) cones.}
 	\label{intro_friction_cone_comparison}
 \end{figure}
-Coulomb friction \cite{moreau2011unilateral} models stick-slip behavior with friction that instantaneously maximizes the dissipation of kinetic energy between two objects in contact while remaining within a friction-cone. For a single contact point, this physical phenomenon can be modeled by the following optimization problem,
+Coulomb friction \cite{moreau2011unilateral} models stick-slip behavior with friction that instantaneously maximizes the dissipation of kinetic energy between two objects in contact while remaining within a friction-cone. For a single contact point, this physical phenomenon can be modeled by the following optimization problem:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{b}{\mbox{minimize}} & \nu^T b\\
@@ -168,7 +168,7 @@ where $\nu \in \mathbf{R}^{2}$ is the tangential velocity at the contact point, 
 This problem is naturally a convex second-order cone program, and can be efficiently and reliably solved \cite{lobo1998applications}. However, classically, an approximate version of \eqref{intro_mdp}:
 \begin{equation}
 	\begin{array}{ll}
-		\underset{\beta}{\mbox{minimize}} & \nu^T D^T \beta, \\
+		\underset{\beta}{\mbox{minimize}} & \nu^T D^T \beta \\
 		\mbox{subject to} & \beta^T \textbf{1} \leq \mu \gamma, \\
 		& \beta \geq 0, \\
 	\end{array} \label{intro_mdp_linear}
@@ -177,8 +177,8 @@ formulated as a linear program, is instead solved. Here, the friction cone is li
 
 The optimality conditions for \eqref{intro_mdp_linear} are:
 \begin{align}
-	\psi \cdot [\mu \gamma - \textbf{1}^T \beta] &= 0 \label{intro_friction_velocity_complementarity}\\
-	\beta \circ [D \nu - \psi \textbf{1}] &= 0 \label{intro_friction_impulse_complementarity}\\
+	\psi \cdot [\mu \gamma - \textbf{1}^T \beta] &= 0, \label{intro_friction_velocity_complementarity}\\
+	\beta \circ [D \nu - \psi \textbf{1}] &= 0, \label{intro_friction_impulse_complementarity}\\
 	\psi, \beta, [\mu \gamma - \textbf{1}^T \beta], [D \nu - \psi \textbf{1}] & \geq 0 \label{intro_friction_inequality}, 
 \end{align}
 where $\psi \in \mathbf{R}$ is a dual variable that can be interpreted as the magnitude of the contact-point tangential velocity, $\textbf{1}$ is a vector of ones, and $\circ$ is an element-wise product.
@@ -217,7 +217,7 @@ Direct trajectory optimization can utilize the LCP contact dynamics formulation 
 \end{align}
 with states, $x = (q, v)$, directly encodes the LCP constraints and aims to minimize an objective. This formulation generalizes to multiple contacts. 
 
-\paragraph{Complementarity reformulation.} To work well in practice with general-purpose off-the-shelf solvers for non-convex problems, the complementarity constraints are reformulated using an exact $\ell_1\mbox{-norm}$ penalty \cite{manchester2020variational},
+\paragraph{Complementarity reformulation.} To work well in practice with general-purpose off-the-shelf solvers for non-convex problems, the complementarity constraints are reformulated using an exact $\ell_1\mbox{-norm}$ penalty \cite{manchester2020variational}:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{}{\mbox{find }}  & a, b\\
@@ -246,14 +246,14 @@ The predictive control policy:
 	u \leftarrow \pi(x)
 	\begin{cases}
 		\begin{array}{ll}
-			\underset{x_{1:H}, u_{1:H}}{\mbox{minimize }}  & \sum \limits_{t = 1}^{H} c_t(x_t, u_t) \\
-			\mbox{subject to } & x_{t+1} = f_t(x_t, u_t), \\
-			& x_1 = x,
+			\underset{x_{1:T}, u_{1:T}}{\mbox{minimize }}  & \sum \limits_{t = 1}^{T} c_t(x_t, u_t) \\
+			\mbox{subject to } & x_{t+1} = f_t(x_t, u_t),  \quad t = 1, \dots, T,\\
+			& x_1 = x
 		\end{array}
 	\end{cases}
 	\label{intro_mpc_policy}
 \end{align}
-is formulated as an optimization problem where $H$ is the planning horizon, typically much shorter than the horizon we care to control the system. The optimized action sequence is utilized to return an action from the policy. If replanning is performed at a high rate, the resulting sequence of open-loop plans will effectively perform feedback.
+is formulated as an optimization problem where $T$ is the planning horizon, typically much shorter than the horizon we care to control the system. The optimized action sequence is utilized to return an action from the policy. If replanning is performed at a high rate, the resulting sequence of open-loop plans will effectively perform feedback.
 
 \paragraph{Practical enhancements.} There are three key enhancements for PC algorithms that lead to its practical performance. First, actions returned by the policy from approximate solutions to the internal optimization problem are often highly effective. As a result, since it is not necessary to solve the problem to convergence the computational burden is substantially reduced, enabling faster replanning, which typically leads to superior feedback. 
 
@@ -265,7 +265,7 @@ Third, the temporal nature of the control problem results in sequential policy e
 For equality-constrained problems, the augmented Lagrangian method \cite{bertsekas2014constrained} is a simple and effective algorithm, particularly when the problem is non-convex. This method transforms the constrained problem into an unconstrained form, then alternates between minimizing an augmented objective and performing updates to the dual variables and a penalty parameter.
 
 \paragraph{Problem.}
-An equality-constrained problem,
+An equality-constrained problem:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{x}{\mbox{minimize }}  & c(x) \\
@@ -330,25 +330,25 @@ Similar to the primal method, search directions ($\Delta x, \Delta y$) are compu
 \section{Interior-Point Method}
 For problems with hundreds to tens of thousands of decision variables and cone constraints, interior-point methods are efficient and return highly accurate solutions.
 \paragraph{Problem.}
-A cone program,
+A cone program:
 \begin{equation}
 	\begin{array}{ll}
 		\underset{x}{\mbox{minimize }}  & c(x) \\
-		\mbox{subject to } & x \in \mathcal{K}. \\
+		\mbox{subject to } & x \in \mathcal{K}, \\
 	\end{array}
 	\label{intro_cone_program}
 \end{equation}
-minimizes an objective while satisfying a cone constraint. For robotics applications, common cones include the positive orthant (i.e., inequality constraints),
+minimizes an objective while satisfying a cone constraint. For robotics applications, common cones include the positive orthant (i.e., inequality constraints):
 \begin{equation} 
 	x^{(i)} \ge 0, \quad i = 1, \dots, n \quad \rightarrow \quad x \in \mathbf{R}^n_{+},
 \end{equation}
-and second-order cones,
+and second-order cones:
 \begin{equation}
 	\|x^{(2:n)}\|_2 \leq x^{(1)} \quad \rightarrow \quad x \in \mathcal{Q}^n.
 \end{equation}
 
 \paragraph{Primal method.}
-An interior-point method transforms the original constrained problem  \eqref{intro_cone_program} into an unconstrained form using a logarithmic barrier, 
+An interior-point method transforms the original constrained problem  \eqref{intro_cone_program} into an unconstrained form using a logarithmic barrier:
 \begin{equation}
 	L_{\mathcal{B}}(x; \kappa) = c(x) - \kappa \phi(x),
 	\label{intro_barrier_function}
@@ -407,7 +407,7 @@ Computing this sensitivity is possible by applying the implicit-function theorem
 \end{equation}
 Then, it is possible to solve for the relationship: 
 \begin{equation}
-	\frac{\partial w^*}{\partial \theta} = -\Big(\frac{\partial r}{\partial w}\Big)^{-1} \frac{\partial r}{\partial \theta}. \label{intro_solution_sensitivity}
+	\frac{\partial w^*}{\partial \theta} = -\Big(\frac{\partial r}{\partial w}\Big)^{-1} \frac{\partial r}{\partial \theta}, \label{intro_solution_sensitivity}
 \end{equation}
 and recover the sensitivity.
 

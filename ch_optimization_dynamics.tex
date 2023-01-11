@@ -132,7 +132,7 @@ Throughout, we use implicit midpoint integrators, quadratic costs, and for conve
 
 \subsection{Acrobot with joint limits}
 
-We model an acrobot \cite{tedrake2014underactuated} with joint limits on the actuated elbow. These limits are enforced with a signed-distance constraint,
+We model an acrobot \cite{tedrake2014underactuated} with joint limits on the actuated elbow. These limits are enforced with a signed-distance constraint:
 \begin{equation}
 	\phi(q) = \begin{bmatrix}\pi / 2 - q_{\mbox{e}} \\ q_{\mbox{e}} + \pi / 2 \end{bmatrix} \geq 0, \label{od_joint_limits}
 \end{equation}

@@ -5,7 +5,7 @@ We introduce MuJoCo MPC (\app{}), an open-source, interactive application and so
 
 \vspace*{\fill}
 
-\noindent Predictive Sampling: Real-time Behavior Synthesis with MuJoCo. Taylor A. Howell, Nimrod Gileadi, Saran Tunyasuvunakool, Kevin Zakka, Tom Erez, and Yuval Tassa. arXiv 2212.00541. 2022.
+\noindent Predictive Sampling: Real-time Behaviour Synthesis with MuJoCo. Taylor A. Howell, Nimrod Gileadi, Saran Tunyasuvunakool, Kevin Zakka, Tom Erez, and Yuval Tassa. arXiv 2212.00541. 2022.
 
 \pagebreak
 
@@ -28,12 +28,12 @@ Importantly, the interactive simulation can be slowed down asynchronously, speed
 In this section we provide a general background on Optimal Control and Trajectory Optimization, then focus on Predictive Control and derivative-free optimization.
 
 \paragraph{Optimal control.}
-Optimal Control means choosing actions in order to minimize future costs (equivalently, to maximize future returns). A dynamical system with \emph{state} $\state \in \mathbf{R}^n$, which takes a user-chosen \emph{control} (or \emph{action}) $\control \in \mathbf{R}^m$, evolves according to the discrete-time\footnote{The continuous-time formulation is generally equivalent, we choose the discrete-time for notation simplicity.} dynamics,
+Optimal Control means choosing actions in order to minimize future costs (equivalently, to maximize future returns). A dynamical system with \emph{state} $\state \in \mathbf{R}^n$, which takes a user-chosen \emph{control} (or \emph{action}) $\control \in \mathbf{R}^m$, evolves according to the discrete-time\footnote{The continuous-time formulation is generally equivalent, we choose the discrete-time for notation simplicity.} dynamics:
 \begin{equation}
 	\state_{t+1} = f(\state_t, \control_t). 
 	\label{ps_dynamics}
 \end{equation}
-The behavior of the system is encoded via the running cost $c : \mathbf{R}^n \times \mathbf{R}^m \rightarrow \mathbf{R}_+$, 
+The behavior of the system is encoded via the running cost:
 \begin{equation}
 	\cost(\state_t, \control_t),
 \end{equation}
@@ -244,7 +244,7 @@ The primary advantage of this first-order method compared to a computationally m
 		\State Compute $\partial \objective/\partial \plan$ with \eqref{ps_pontryagin}
 		\State Compute $\partial \objective/\partial \theta$ with \eqref{ps_paramderivs}
 		\State Roll out parallel line-search with \eqref{ps_linesearch}
-		\State Pick the best one: $\theta \leftarrow \mbox{arg min} \bigl(\objective(\theta^{(i)})\bigr)$
+		\State Pick the best one: $\theta \leftarrow \mbox{argmin} \bigl(\objective(\theta^{(i)})\bigr)$
 	\end{algorithmic}
 \end{algorithm}
 
@@ -261,15 +261,13 @@ This is a trivial, zero-order, sampling-based Predictive Control method that wor
 		\Require initial state $\state_0$, nominal plan $\plan(\theta)$
 		\State Get $N\!-\!1$ samples $\theta_i \sim \mathcal{N}(\theta, \sigma^2)$
 		\State Including $\theta$, roll out all $N$ samples from $\state_0$
-		\State Pick the best one: $\theta \leftarrow \mbox{arg min} \bigl(\objective(\theta^{(i)})\bigr)$
+		\State Pick the best one: $\theta \leftarrow \mbox{argmin} \bigl(\objective(\theta^{(i)})\bigr)$
 	\end{algorithmic}
 \end{algorithm}
 
-Our repository \url{https://github.com/deepmind/mujoco_mpc} includes a notebook that implements Predictive Sampling with easy-to-understand Python code.
-
 \section{Results} \label{ps_results}
 
-We provide a short textual description of our graphical user interface (GUI) for three example tasks. They are best understood by viewing the associated video at \url{https://dpmd.ai/mjpc} or better yet, by downloading the software and interacting with it. 
+We provide a short textual description of our graphical user interface (GUI) for three example tasks. They are best understood by viewing the associated video at: \url{https://dpmd.ai/mjpc}, or better yet, by downloading the software and interacting with it. 
 
 \subsection{Graphical user interface}
 
@@ -385,7 +383,7 @@ The linear interpolation returns:
 where $\quad q = (\tau - \tau_j) / (\tau_{j+1} - \tau_j)$.
 
 \paragraph{Cubic.}
-The cubic interpolation leverages finite-difference approximations of the slope at the interval points,
+The cubic interpolation leverages finite-difference approximations of the slope at the interval points:
 \begin{align}
 	\phi_j &= \frac{1}{2} \left(\frac{\theta_{j+1} - \theta_j}{
 		\tau_{j+1} - \tau_j} +
@@ -400,7 +398,7 @@ and returns:
 \begin{equation}
 	a \cdot \theta_j + b \cdot \phi_j + c \cdot \theta_{j+1} + d \cdot \phi_{j+1} \leftarrow s,
 \end{equation}
-where,
+where:
 \begin{align}
 	a &= 2 q^3 - 3 q^2 + 1,\\
 	b &= (q^3 - 2 q^2 + q) \cdot (\tau_{j+1} - \tau_j),\\
@@ -526,35 +524,35 @@ We provide the settings used for Predictive Sampling in Table \ref{ps_settings}.
 We provide a numerical algorithm for Predictive Sampling:
 
 \begin{algorithm}[H]
-	\caption{PredictiveSampling}\label{ps_predictive_sampling_algorithm_numeric}
+	\caption{PredictiveSampling}\label{predictive_sampling_algorithm_numeric}
 	\begin{algorithmic}[1]
 		\Procedure{OptimizePolicy}{}
-		\State \textbf{Task}: $f$, $c$, $R$
-		\State \textbf{Settings}: $T$, $N$, $\sigma$, $s$
-		\State \textbf{Initialize}: $(\tau, \theta)$
-		\State \textbf{For} $k = 0, \dots, \infty$
-		\State \indent $(s, \tau) \leftarrow$ get state
+		\State task: $f$, $c$, $R$
+		\State settings: $T$, $N$, $\sigma$, $s$
+		\State initialise: $(\tau, \theta)$
+		\State \textbf{for} $k = 0, \dots, \infty$
+		\State \indent $(x, \tau) \leftarrow$ get state
 		\State \indent $(\bar{\tau}, \theta) \leftarrow \text{resample}$
-		\State \indent \textbf{For} $i = 0, \dots, N$ (parallel)
+		\State \indent \textbf{for} $i = 0, \dots, N$ (parallel)
 		\State \indent \indent $\tilde{\theta}^{(i)} = \theta + 
 		\begin{cases}
 			0, \phantom{\mathcal{N}(0, \sigma^2 \cdot I)} i = 0, \\ 
 			\mathcal{N}(0, \sigma^2 \cdot I), \phantom{0} \text{else} 
 		\end{cases}$
-		\State \indent \indent $s^{(i)}_0 = s, \, \tau_0^{(i)} = \tau$,
-		\State \indent \indent \textbf{For} $t = 0, \dots, T$
-		\State \indent \indent \indent $a^{(i)}_{t} = s(\tau^{(i)}_t; (\bar{\tau}, \tilde{\theta}^{(i)}))$
-		\State \indent \indent \indent $c^{(i)}_{t} = c(s^{(i)}_t, a^{(i)}_t; R)$
-		\State \indent \indent \indent $(s^{(i)}_{t+1}, \tau^{(i)}_{t+1}) = f(s^{(i)}_t, a^{(i)}_t)$
-		\State \indent \indent \textbf{End For}
-		\State \indent \textbf{End For} 
-		\State \indent $\theta \leftarrow \text{arg min}\left(J(\tilde{\theta}^{(i)})\right)$
-		\State \textbf{End For}
+		\State \indent \indent $x^{(i)}_0 = x, \, \tau_0^{(i)} = \tau$,
+		\State \indent \indent \textbf{for} $t = 0, \dots, T$
+		\State \indent \indent \indent $u^{(i)}_{t} = s(\tau^{(i)}_t; (\bar{\tau}, \tilde{\theta}^{(i)}))$
+		\State \indent \indent \indent $c^{(i)}_{t} = c(x^{(i)}_t, u^{(i)}_t; R)$
+		\State \indent \indent \indent $(x^{(i)}_{t+1}, \tau^{(i)}_{t+1}) = f(x^{(i)}_t, u^{(i)}_t)$
+		\State \indent \indent \textbf{end for}
+		\State \indent \textbf{end for} 
+		\State \indent $\theta \leftarrow \text{argmin}\left(J(\tilde{\theta}^{(i)})\right)$
+		\State \textbf{end for}
 		\EndProcedure
 		\Procedure{ActionFromPolicy}{}
-		\State $(s, \tau) \leftarrow$ get state
-		\State $a = s(\tau; (\bar{\tau}, \theta))$
-		\State \textbf{Return} $a$
+		\State $(x, \tau) \leftarrow$ get state
+		\State $u = s(\tau; (\bar{\tau}, \theta))$
+		\State \textbf{return} $u$
 		\EndProcedure
 	\end{algorithmic}
 \end{algorithm}
