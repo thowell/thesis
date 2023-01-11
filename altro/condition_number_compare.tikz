@@ -1,0 +1,22 @@
+\begin{tikzpicture}[]
+\begin{axis}[legend pos = {north west}, ylabel = {max condition number},xtick={0,1,2,3,4,5},xticklabels={0,1,2,3,4,5}, xmin = {0.0}, xmax = {5}, ymax = {2.0e9}, ymode = {log}, xlabel = {dual update iteration}, hide axis = {false}, ymin = {1.0}]\addplot+ [mark = {none}, line width=2, color=cyan]coordinates {
+(0.0, 108895.52458357102)
+(1.0, 148985.4323440969)
+(2.0, 894999.0189457047)
+(3.0, 3.162240015056782e6)
+(4.0, 5.440195159404646e7)
+(5.0, 8.701849871191038e8)
+};
+\addlegendentry{standard}
+\addplot+ [mark = {none}, line width=2, color=orange]coordinates {
+(0.0, 329.99321899650687)
+(1.0, 385.98631108376276)
+(2.0, 946.0438779246266)
+(3.0, 1778.2688252229134)
+(4.0, 7375.767850538116)
+(5.0, 29498.897969107733)
+};
+\addlegendentry{square-root}
+\end{axis}
+
+\end{tikzpicture}

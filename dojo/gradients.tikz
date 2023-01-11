@@ -1,0 +1,368 @@
+\makeatletter
+\newcommand\addplotgraphicsnatural[2][]{%
+	\begingroup
+	% set options in this local group (will be lost afterwards):
+	\pgfqkeys{/pgfplots/plot graphics}{#1}%
+	% measure the natural size of the graphics:
+	\setbox0=\hbox{\includegraphics{#2}}%
+	%
+	% compute the required unit vector ratio:
+	\pgfmathparse{\wd0/(\pgfkeysvalueof{/pgfplots/plot graphics/xmax} - \pgfkeysvalueof{/pgfplots/plot graphics/xmin})}%
+	\let\xunit=\pgfmathresult
+	\pgfmathparse{\ht0/(\pgfkeysvalueof{/pgfplots/plot graphics/ymax} - \pgfkeysvalueof{/pgfplots/plot graphics/ymin})}%
+	\let\yunit=\pgfmathresult
+	%
+	% configure pgfplots to use it.
+	% The \xdef expands all macros except those prefixed by '\noexpand'
+	% and assigns the result to a global macro named '\marshal'.
+	\xdef\marshal{%
+		\noexpand\pgfplotsset{unit vector ratio={\xunit\space \yunit}}%
+	}%
+	\endgroup
+	%
+	% use our macro here:
+	\marshal
+	%
+	\addplot graphics[#1] {#2};
+}   
+\makeatother
+
+\begin{tikzpicture}
+	\begin{axis}[
+		axis line style={draw=none},
+		tick style={draw=none},
+		height=5.00cm,, 
+		width=4.2cm, 
+		ticks=none,
+		ylabel style={align=center}, 
+		ylabel=impact,
+		name=plot1,
+		legend image post style={mark=none},
+		xmin=0.00, 
+		xmax=0.20,
+		ymin=0.00, 
+		ymax=0.20]
+		
+		\addplot[color=white, mark=none, style={thick}] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.2,0.1)
+		};
+		\addplotgraphicsnatural[xmin=-0.00,xmax=0.20,ymin=-0.000,ymax=0.20]{dojo/box_up.png};
+		
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,
+		width=5.00cm,
+		xshift=0.5cm,
+		ticks=none,
+		title=Dojo,
+		xlabel=$f_y$,
+		ylabel=$\partial y / \partial f_y$,
+		title style={at={(axis description cs:0.5,+1.45)},anchor=south},
+		name=plot2,
+		legend columns=2,
+		legend style={at={(0.00,1.03)}, anchor=south west, draw=none},
+		legend image post style={mark=none},
+		at=(plot1.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addlegendimage{legend image with text=$\kappa$}
+		\addlegendentry{}
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		\addplot[color=magenta, line width=2.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/impact_dojo_1.0e-4.csv};
+		\addlegendentry{$10^{-4}$}
+		\addplot[color=magenta, line width=1.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/impact_dojo_1.0e-5.csv};
+		\addlegendentry{$10^{-5}$}
+		\addplot[color=magenta, line width=1.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/impact_dojo_1.0e-6.csv};
+		\addlegendentry{$10^{-6}$}
+		\addplot[color=magenta, line width=0.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/impact_dojo_1.0e-7.csv};
+		\addlegendentry{$10^{-7}$}
+		\addplot[color=magenta, line width=0.25pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/impact_dojo_1.0e-8.csv};
+		\addlegendentry{$10^{-8}$}
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,, 
+		width=5.00cm,
+		ticks=none,
+		title=randomized smoothing,
+		xlabel=$f_y$,
+		title style={at={(axis description cs:0.5,1.45)},anchor=south},
+		name=plot3,
+		legend columns=2,
+		legend style={at={(0.0,1.03)}, anchor=south west, draw=none},
+		legend image post style={mark=none},
+		at=(plot2.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addlegendimage{legend image with text=$\Sigma$}
+		\addlegendentry{}
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		\addplot[color=gray, mark=none, line width=2.0pt] coordinates {(-1,-1) (-1,-1)};
+		\addlegendentry{$10^{-1}$}
+		\addplot[color=gray, mark=none, line width=1.5pt] coordinates {(-1,-1) (-1,-1)};
+		\addlegendentry{$10^{-2}$}
+		\addplot[color=gray, mark=none, line width=1.0pt] coordinates {(-1,-1) (-1,-1)};
+		\addlegendentry{$10^{-3}$}
+		
+		\addplot[color=orange, line width=2.0pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/impact_gb_1.0e-2.csv};
+		\addlegendentry{$0^{\text{th}}$}
+		\addplot[color=orange, line width=1.5pt, forget plot]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/impact_gb_1.0e-3.csv};
+		\addplot[color=orange, line width=1.0pt, forget plot]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/impact_gb_1.0e-4.csv};
+		\addplot[color=cyan, line width=2.0pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/impact_gb_1.0e-2.csv};
+		\addlegendentry{$1^{\text{st}}$}
+		\addplot[color=cyan, line width=1.5pt, dotted, forget plot]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/impact_gb_1.0e-3.csv};
+		\addplot[color=cyan, line width=1.0pt, dotted, forget plot]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/impact_gb_1.0e-4.csv};
+	\end{axis}
+	
+	
+	%%%%%%%
+	\begin{axis}[
+		axis line style={draw=none},
+		tick style={draw=none},
+		height=5.00cm,
+		width=4.2cm, 
+		yshift=-4.5cm,
+		ticks=none,
+		ylabel style={align=center}, 
+		ylabel=linearized friction,
+		name=plot4,
+		legend image post style={mark=none},
+		xmin=0.00, 
+		xmax=0.20,
+		ymin=0.00, 
+		ymax=0.20]
+		
+		\addplot[color=white, mark=none, style={thick}] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.2,0.1)
+		};
+		\addplotgraphicsnatural[xmin=-0.00,xmax=0.20,ymin=-0.000,ymax=0.20]{dojo/box_right.png};
+		
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,, 
+		width=5.00cm,
+		xshift=0.5cm,
+		ticks=none,
+		xlabel=$f_x$,
+		ylabel=$\partial x / \partial f_x$,
+		name=plot5,
+		legend columns=2,
+		legend style={at={(0.00,1.03)}, anchor=south west, draw=none},
+		legend image post style={mark=none},
+		at=(plot4.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		\addplot[color=magenta, line width=2.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/linear_friction_dojo_1.0e-4.csv};
+		\addplot[color=magenta, line width=1.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/linear_friction_dojo_1.0e-5.csv};
+		\addplot[color=magenta, line width=1.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/linear_friction_dojo_1.0e-6.csv};
+		\addplot[color=magenta, line width=0.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/linear_friction_dojo_1.0e-7.csv};
+		\addplot[color=magenta, line width=0.25pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/linear_friction_dojo_1.0e-8.csv};
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,, 
+		width=5.00cm,
+		ticks=none,
+		title=\phantom{randomized smoothing},
+		xlabel=$f_x$,
+		title style={at={(axis description cs:0.5,+1.0)},anchor=south},
+		name=plot6,
+		legend columns=2,
+		legend style={at={(0.0,1.03)}, anchor=south west},
+		legend image post style={mark=none},
+		at=(plot5.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		
+		\addplot[color=orange, line width=2.0pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/linear_friction_gb_1.0e-2.csv};
+		\addplot[color=orange, line width=1.5pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/linear_friction_gb_1.0e-3.csv};
+		\addplot[color=orange, line width=1.0pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/linear_friction_gb_1.0e-4.csv};
+		\addplot[color=cyan, line width=2.0pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/linear_friction_gb_1.0e-2.csv};
+		\addplot[color=cyan, line width=1.5pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/linear_friction_gb_1.0e-3.csv};
+		\addplot[color=cyan, line width=1.0pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/linear_friction_gb_1.0e-4.csv};
+	\end{axis}
+	
+	%%%%%
+	\begin{axis}[
+		axis line style={draw=none},
+		tick style={draw=none},
+		height=5.00cm,, 
+		width=4.2cm, 
+		yshift=-9.0cm,
+		ticks=none,
+		ylabel style={align=center}, 
+		ylabel=nonlinear friction,
+		name=plot7,
+		legend image post style={mark=none},
+		xmin=0.00, 
+		xmax=0.20,
+		ymin=0.00, 
+		ymax=0.20]
+		
+		\addplot[color=white, mark=none, style={ultra thick}] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.2,0.1)
+		};
+		\addplotgraphicsnatural[xmin=-0.00,xmax=0.20,ymin=-0.000,ymax=0.20]{dojo/box_right.png};
+		
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,
+		width=5.00cm,
+		xshift=0.5cm,
+		ticks=none,
+		xlabel=$f_x$,
+		ylabel=$\partial x / \partial f_x$,
+		name=plot8,
+		legend columns=2,
+		legend style={at={(0.00,1.03)}, anchor=south west, draw=none},
+		legend image post style={mark=none},
+		at=(plot7.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		\addplot[color=magenta, line width=2.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/nonlinear_friction_dojo_1.0e-4.csv};
+		\addplot[color=magenta, line width=1.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/nonlinear_friction_dojo_1.0e-5.csv};
+		\addplot[color=magenta, line width=1.0pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/nonlinear_friction_dojo_1.0e-6.csv};
+		\addplot[color=magenta, line width=0.5pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/nonlinear_friction_dojo_1.0e-7.csv};
+		\addplot[color=magenta, line width=0.25pt]
+		table[x=F,y=grad,col sep=comma]{dojo/data/nonlinear_friction_dojo_1.0e-8.csv};
+	\end{axis}
+	
+	\begin{axis}[
+		height=5.00cm,, 
+		width=5.00cm,
+		ticks=none,
+		title=\phantom{randomized smoothing},
+		xlabel=$f_x$,
+		title style={at={(axis description cs:0.5,+1.0)},anchor=south},
+		name=plot9,
+		legend columns=2,
+		legend style={at={(0.0,1.03)}, anchor=south west},
+		legend image post style={mark=none},
+		at=(plot8.right of south east), anchor=left of south west,
+		xmin=0, 
+		xmax=0.2,
+		ymin=-0.01, 
+		ymax=0.11]
+		
+		\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.1,0.1)
+			(0.2,0.1)
+		};
+		
+		\addplot[color=orange, line width=2.0pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-2.csv};
+		\addplot[color=orange, line width=1.5pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-3.csv};
+		\addplot[color=orange, line width=1.0pt]
+		table[x=F,y=gb0,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-4.csv};
+		\addplot[color=cyan, line width=2.0pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-2.csv};
+		\addplot[color=cyan, line width=1.5pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-3.csv};
+		\addplot[color=cyan, line width=1.0pt, dotted]
+		table[x=F,y=gb1,col sep=comma]{dojo/data/nonlinear_friction_gb_1.0e-4.csv};
+	\end{axis}
+	
+	\begin{axis}[
+		height= 3.0cm, 
+		width = 4.0cm,
+		xshift=-0.6cm,
+		yshift=+3.5cm,
+		ticks=none,
+		xlabel=$f$,
+		ylabel=$\Delta$,
+		% title style={at={(axis description cs:0.5,+0.75)},anchor=south},
+		% x label style={at={(axis description cs:0.5,+0.65)},anchor=north},
+		% y label style={at={(axis description cs:+0.8,.5)},anchor=south},
+		name=plot10,
+		title = dynamics,
+		at=(plot2.left of south west), anchor=right of south east,
+		xmin=0, xmax=0.2,
+		ymin=-0.01, ymax=0.11]
+		\addplot[color=black, mark=none, style={ultra thick}] coordinates {
+			(0,0)
+			(0.1,0)
+			(0.2,0.1)
+		};
+	\end{axis}
+\end{tikzpicture}

@@ -1,0 +1,41 @@
+\begin{tikzpicture}
+% coordinate frame
+\draw[very thick,-{Triangle}] (0.98,0.0) -- (2.0,0.0) node[anchor=west] {$y$};
+\draw[very thick,-{Triangle}] (1.0,-0.02) -- (1.0,1.0) node[anchor=south] {$z$};
+
+% rocket body
+\node at (3,3) {$\centerofmass$};
+\node[anchor=south,xshift=-9pt,yshift=3pt] at (3,3) {$J_{\mathrm{r}}, m_{\mathrm{r}}$};
+
+% rocket body orientation
+\draw[dashed] (3,2.85) -- (3,2.5);
+\draw (3,2.5) arc (270:315:0.5)
+node[midway,xshift=2pt,yshift=-4pt] {$\phi$};
+
+% pendulum
+\draw (3.1,2.9) -- (3.75,2.25)
+node[midway,sloped,rotate=45,xshift=4pt,yshift=4pt] {$d_{\mathrm{f}}$};
+\draw[very thick] (3.75,2.25) -- (4.442,1.962)
+node[midway,sloped,rotate=22.5,xshift=0pt,yshift=5.5pt] {$l_{\mathrm{f}}$};
+\draw[dashed] (3.75,2.25) -- (3.75,1.75);
+\draw (3.75,1.75) arc (270:337.5:0.5)
+node[midway,xshift=3pt,yshift=-3pt] {$\psi$};
+\node[black,circle,fill,inner sep=1.5pt] at (4.442,1.962) {};
+\node[anchor=north,xshift=6pt,yshift=-2pt] at (4.442,1.962) {$m_{\mathrm{f}}$};
+
+\draw[very thick,-{Triangle}] (5.88,0.441) -- (5.40,0.596);
+\node[anchor=west] at (5.88,0.441) {$F_y, F_z$};
+
+% outline
+% body
+%		\draw (3.35,3.35) -- (1.94,4.77) -- (1.23,4.06) -- (4.77,0.525) -- (5.47,1.23)-- (3.35,3.35);
+% body + cone
+\draw (3.35,3.35) -- (1.94,4.77) -- (1.23,4.77) --(1.23,4.06) -- (4.77,0.525) -- (5.47,1.23)-- (3.35,3.35);
+\draw  (1.94,4.77) -- (1.23,4.06);
+% thruster
+\draw (5.33,1.09) -- (5.76,0.949) -- (5.05,0.242) -- (4.91,0.667);
+
+% length
+\draw[|-|] (2.47,2.47) -- (4.87,0.065)
+node[midway,xshift=-5pt,yshift=-5pt] {$l_{\mathrm{r}}$};
+\end{tikzpicture}

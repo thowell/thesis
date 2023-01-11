@@ -1,0 +1,439 @@
+% This file was created by matlab2tikz.
+%
+%The latest updates can be retrieved from
+%  http://www.mathworks.com/matlabcentral/fileexchange/22022-matlab2tikz-matlab2tikz
+%where you can also make suggestions and rate matlab2tikz.
+%
+% \definecolor{mycolor1}{rgb}{0.85098,0.32549,0.09804}%
+\definecolor{mycolor1}{rgb}{1.0,0.6,0.0}%       # thrust vector 
+\definecolor{mycolor2}{rgb}{0,0,0}% # constrained 
+\definecolor{mycolor3}{rgb}{1.0,0.0,1.0}%       # unconstrained
+% (1.0, 0.6470588235294118, 0.0)
+%
+\begin{tikzpicture}
+% \node[inner sep=0pt] (burn) at (0,0)
+%     {\includegraphics[width=0.15\textwidth]{calipso/burn.pdf}};
+\begin{axis}[%
+width=3.8in,
+height=3in,
+at={(1.475in,0.642in)},
+scale only axis,
+xmin=-6,
+xmax=1,
+% xlabel style={font=\color{white!15!black}},
+% xlabel={X},
+ymin=0,
+ymax=5.5,
+% ytick={0, 1, 2, 3, 4, 5},
+yticklabels={,,},
+xticklabels={,,},
+x tick label style={major tick length=0pt},
+% ytick = {},
+% ylabel style={font=\color{white!15!black}},
+% ylabel={Y},
+axis background/.style={fill=white},
+axis x line*=bottom,
+axis y line*=left,
+y axis line style={draw opacity=0},
+legend style={legend cell align=left, align=left, draw=white!15!black}
+]
+
+\addplot[area legend, draw=white, fill=black, fill opacity=0.2, forget plot]
+table[row sep=crcr] {%
+x	y\\
+-5	0.015\\
+-0.6	0.015\\
+-0.6	2.9\\
+-5	2.9\\
+}--cycle;
+
+\addplot[area legend, draw=white, fill=black, fill opacity=0.2]
+table[row sep=crcr] {%
+x	y\\
+0.3	0.015\\
+5	0.015\\
+5	2.9\\
+0.3	2.9\\
+}--cycle;
+% \addlegendentry{keepout zone}
+
+\addplot [color=mycolor2, line width=2.0pt]
+  table[row sep=crcr]{%
+-4.99999999446793	5.00000001141072\\
+-4.98749999190765	4.98874805651689\\
+-4.94999999643744	4.95681410528146\\
+-4.88750000954755	4.90766309663227\\
+-4.80000003333327	4.84440744060093\\
+-4.68750007095368	4.76981778496119\\
+-4.55000012772407	4.68633384713415\\
+-4.38750021458626	4.59607513576744\\
+-4.20000037031134	4.50085143356171\\
+-3.9883526650069	4.4021729343574\\
+-3.7556617640338	4.30125994637853\\
+-3.50628848828111	4.19905209128457\\
+-3.24431754691661	4.09621694558354\\
+-2.9735832166465	3.99315808713287\\
+-2.69769523542523	3.89002252498694\\
+-2.42006468979942	3.78670750582262\\
+-2.14392973168553	3.6828667046649\\
+-1.87238097468182	3.57791582171835\\
+-1.60838643041596	3.47103762086244\\
+-1.35481585357639	3.36118645886162\\
+-1.11446437039452	3.2470923676487\\
+-0.890075269355454	3.12726476524609\\
+-0.684361833850628	2.9999958841851\\
+-0.500027864948432	2.86441198589256\\
+-0.338682416693717	2.72152802283481\\
+-0.199748664777688	2.5732100497673\\
+-0.081578962196785	2.421140893401\\
+0.017435273452577	2.26683323577764\\
+0.0988601441333654	2.11164287657644\\
+0.164216967422444	1.95678174560448\\
+0.214980964286396	1.80333061304763\\
+0.252580837422294	1.65225145330631\\
+0.278399145746576	1.50439942557979\\
+0.293773384892059	1.36053444083741\\
+0.299997681082204	1.22133229046417\\
+0.298292723049219	1.08739531673286\\
+0.289775811232535	0.959262609374594\\
+0.275496280916204	0.837419715933019\\
+0.256470967000754	0.722307856332982\\
+0.233687679418396	0.614332634209284\\
+0.208108854767815	0.513872239061416\\
+0.180675374405036	0.421285134261278\\
+0.152310502132623	0.336917226376942\\
+0.123923893391731	0.261108511219765\\
+0.0964156285396516	0.194199191506978\\
+0.0706802235203336	0.13653526008851\\
+0.0476105717057876	0.088473541346128\\
+0.0281017708307566	0.0503861816649413\\
+0.013054788742534	0.0226645778315687\\
+0.00337992114039695	0.00572272985919326\\
+-6.4102612462143e-09	2.10655478862908e-09\\
+};
+% \addlegendentry{constrained}
+
+\addplot [color=mycolor3, dashed, line width=2.0pt]
+  table[row sep=crcr]{%
+-5.00000000048802	5.00000000062011\\
+-4.98750001072478	4.98773751052032\\
+-4.95000004506771	4.950950043051\\
+-4.88750011972892	4.88963761188118\\
+-4.80000032324759	4.80380027144807\\
+-4.68875994735561	4.69432071867562\\
+-4.55691490995605	4.56396974441142\\
+-4.40805077320149	4.41635529696813\\
+-4.24542604454933	4.25475725443724\\
+-4.07198954836005	4.08214474051097\\
+-3.89039791185754	3.90119359540025\\
+-3.70303300370011	3.71430381036173\\
+-3.51201920038658	3.52361679900637\\
+-3.31924037405585	3.33103239769337\\
+-3.12635651095906	3.13822550322104\\
+-2.93481988408915	2.94666227033849\\
+-2.74589071637036	2.75761580460621\\
+-2.56065228254002	2.57218129794209\\
+-2.38002540846936	2.39129056487738\\
+-2.20478233623575	2.21572594718132\\
+-2.0355599318375	2.046133563157\\
+-1.87287222009693	1.8830358856261\\
+-1.7171222380877	1.72684363946709\\
+-1.56861320440728	1.57786701560948\\
+-1.42755900685333	1.43632620367339\\
+-1.29409401560794	1.30236125003424\\
+-1.16828223294183	1.17604125204234\\
+-1.05012579377198	1.05737290248656\\
+-0.939572834191603	0.946308401211585\\
+-0.836524747387839	0.842752753126263\\
+-0.740842848215371	0.746570473721875\\
+-0.652354469146563	0.657591724696787\\
+-0.570858511410691	0.575617903398618\\
+-0.496130475905205	0.500426710585199\\
+-0.427926998946416	0.431776721507221\\
+-0.365989918159278	0.369411485562568\\
+-0.310049893817652	0.313063179796391\\
+-0.259829610766886	0.262455841351704\\
+-0.215046585717142	0.217308203639962\\
+-0.175415604213951	0.17733616052535\\
+-0.14065081099547	0.14225488222381\\
+-0.110467476755492	0.111780605930062\\
+-0.0845834635674078	0.0856321234230072\\
+-0.0627204104052908	0.063531987080393\\
+-0.0446046593409602	0.0452074548744077\\
+-0.0299679421155605	0.0303911940363532\\
+-0.0185478458949426	0.0188217621849109\\
+-0.0100880761326914	0.0102438838215682\\
+-0.00433853359462686	0.00440853922024997\\
+-0.00105522175452373	0.00107288188668675\\
+3.78298090989383e-11	-5.38256088460182e-11\\
+};
+% \addlegendentry{unconstrained}
+
+\pgfmathsetmacro{\PHI}{1.4}
+\pgfmathsetmacro{\LW}{1}
+\pgfmathsetmacro{\SS}{1.5}
+
+% \addplot[-Straight Barb, color=mycolor1, line width=1pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.99999999446793	5.00000001141072	0.899999758713949	0.0727583950197105\\
+% };
+
+% % \draw [-{Stealth[length=3mm, width=2mm]}] (-3,3) -- (-2,3);
+% % \addplot[-Straight Barb, color=mycolor1, line width=1.0pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+% %  table[row sep=crcr] {%
+% % x	y	u	v\\
+% % -4.98749999190765	4.98874805651689	0.89999971384148	0.203937848422966\\
+% % };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.94999999643744	4.95681410528146	0.899999652517847	0.322233999159077\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.88750000954755	4.90766309663227	0.899999564083205	0.428031371573562\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.80000003333327	4.84440744060093	0.899999426164102	0.52172063933831\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.68750007095368	4.76981778496119	0.899999182483457	0.603691026007792\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.55000012772407	4.68633384713415	0.899998639447697	0.674325261783007\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.38750021458626	4.59607513576744	0.899996392053162	0.733995380029084\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -4.20000037031134	4.50085143356171	0.838649592767852	0.783059217678566\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -3.9883526650069	4.4021729343574	0.67646048695621	0.821857571413973\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -3.7556617640338	4.30125994637853	0.524670489342789	0.850711976339391\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -3.50628848828111	4.19905209128457	0.382361427218149	0.869923079153623\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -3.24431754691661	4.09621694558354	0.248602566627981	0.879769581277825\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -2.9735832166465	3.99315808713287	0.122460294444266	0.880507730367113\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -2.69769523542523	3.89002252498694	0.00300433506520455	0.872371341465735\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -2.42006468979942	3.78670750582262	-0.110686643874107	0.855572331825029\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -2.14392973168553	3.6828667046649	-0.219519844435287	0.830301756106624\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -1.87238097468182	3.57791582171835	-0.324383481559956	0.79673133134079\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -1.60838643041596	3.47103762086244	-0.426142182525263	0.755015443615517\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -1.35481585357639	3.36118645886162	-0.525632570745332	0.705293631129697\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -1.11446437039452	3.2470923676487	-0.623658953931738	0.6476935415118\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.890075269355454	3.12726476524609	-0.720988975325939	0.582334370470169\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.684361833850628	2.9999958841851	-0.818345663049944	0.584794157042963\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.500027864948432	2.86441198589256	-0.836812267646753	0.655393263397985\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.338682416693717	2.72152802283481	-0.77682986178355	0.719157986364529\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.199748664777688	2.5732100497673	-0.71818168327191	0.77655678698653\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% -0.081578962196785	2.421140893401	-0.661011930499817	0.828071093984303\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.017435273452577	2.26683323577764	-0.605422343377196	0.874174364694442\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.0988601441333654	2.11164287657644	-0.551477065448315	0.915330041052151\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.164216967422444	1.95678174560448	-0.499206432634182	0.951989819164618\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.214980964286396	1.80333061304763	-0.448610466988527	0.984592199069415\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.252580837422294	1.65225145330631	-0.399662178981198	1.01356128277858\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.278399145746576	1.50439942557979	-0.352310746086354	1.0393057901837\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.293773384892059	1.36053444083741	-0.30648492325007	1.0622182638537\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.299997681082204	1.22133229046417	-0.26442537188743	1.08267443519541\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.298292723049219	1.08739531673286	-0.226034424421352	1.1010327258624\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.289775811232535	0.959262609374594	-0.18887397107973	1.1176338596867\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.275496280916204	0.837419715933019	-0.152822395845061	1.13280056176529\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.256470967000754	0.722307856332982	-0.117751681211236	1.14683732265659\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.233687679418396	0.614332634209284	-0.0835269711990411	1.16003020692958\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.208108854767815	0.513872239061416	-0.0500082286814467	1.17264668655804\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.180675374405036	0.421285134261278	-0.017051980151458	1.18493548086623\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.152310502132623	0.336917226376942	0.0154869615357077	1.19712638591077\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.123923893391731	0.261108511219765	0.0477538046921774	1.20943007732948\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.0964156285396516	0.194199191506978	0.0798921090289184	1.22203787180477\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.0706802235203336	0.13653526008851	0.11204212729234	1.23512143338152\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.0476105717057876	0.088473541346128	0.144339145975848	1.24883241195218\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.0281017708307566	0.0503861816649413	0.176911812555649	1.26330200228176\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.013054788742534	0.0226645778315687	0.209880436801619	1.27864041299853\\
+% };
+% \addplot[-Straight Barb, color=mycolor1, line width=\LW pt, point meta={sqrt((\thisrow{u})^2+(\thisrow{v})^2)}, point meta min=0, quiver={u=-\thisrow{u}/\SS, v=-\thisrow{v}/\SS, every arrow/.append style={-{Straight Barb[angle'=18.263, scale={\PHI/1000*\pgfplotspointmetatransformed}]}}}]
+%  table[row sep=crcr] {%
+% x	y	u	v\\
+% 0.00337992114039695	0.00572272985919326	0.243355253984776	1.29493623603104\\
+% };
+% \addlegendentry{thrust vector}
+% \addplot[thick,blue] graphics[xmin=0,ymin=0,xmax=96,ymax=96] {calipso/burn.pdf};
+\end{axis}
+\node [opacity=0.5] at (5.2,8.5) {\includegraphics[width=0.5cm,angle=-45,origin=c]{calipso/burn.png}};
+\node [opacity=0.58] at (7,7.55) {\includegraphics[width=0.5cm,angle=-15,origin=c]{calipso/burn.png}};
+\node [opacity=0.66] at (9,6.8) {\includegraphics[width=0.5cm,angle=-0,origin=c]{calipso/burn.png}};
+\node [opacity=0.75] at (10.9,5.8) {\includegraphics[width=0.5cm,angle=15,origin=c]{calipso/burn.png}};
+\node [opacity=0.83] at (12.1,4.5) {\includegraphics[width=0.5cm,angle=30,origin=c]{calipso/burn.png}};
+\node [opacity=0.91] at (12.4,3.15) {\includegraphics[width=0.5cm,angle=20,origin=c]{calipso/burn.png}};
+\node [opacity=1.0] at (12,1.8)
+{\includegraphics[width=0.5cm]{calipso/burn.png}};
+\end{tikzpicture}%

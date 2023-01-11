@@ -1,0 +1,323 @@
+\chapter{Planning with Optimization-Based Dynamics}
+
+We present a framework for bi-level trajectory optimization in which a system's dynamics are encoded as the solution to a constrained optimization problem and smooth gradients of this lower-level problem are passed to an upper-level trajectory optimizer. This optimization-based dynamics representation enables constraint handling, additional variables, and non-smooth behavior to be abstracted away from the upper-level optimizer, and allows classical unconstrained optimizers to synthesize trajectories for more complex systems. We provide an interior-point method for efficient evaluation of constrained dynamics and utilize implicit differentiation to compute smooth gradients of this representation. We demonstrate the framework by modeling systems from locomotion, aerospace, and manipulation domains including: acrobot with joint limits, cart-pole subject to Coulomb friction, Raibert hopper, rocket landing with thrust limits, and planar-push task with optimization-based dynamics and then optimize trajectories using iterative LQR.
+
+\vspace*{\fill}
+
+\noindent Trajectory Optimization with Optimization-Based Dynamics. Taylor A. Howell, Simon Le Cleac'h, Sumeet Singh, Pete Florence, Zachary Manchester, and Vikas Sindhwani. Robotics and Automation Letters. 2022.
+
+\pagebreak
+
+\section{Introduction}
+Trajectory optimization is a powerful tool for synthesizing trajectories for nonlinear dynamical systems. Indirect methods, in particular, are able to efficiently find optimal solutions to this class of problem by returning dynamically feasible trajectories via rollouts and utilizing gradients of the system's dynamics.
+
+Classically, indirect methods like iterative LQR (iLQR) \cite{jacobson1970differential} utilize \textit{explicit} dynamics representations, which can be directly evaluated and differentiated in order to return gradients. In this work, we present a more general framework for \textit{optimization-based} dynamics representations. This latter class enables partial elimination of trajectory-level constraints by absorbing them into the dynamics representation.
+
+We formulate optimization-based dynamics as a constrained optimization problem and provide an interior-point method for efficient evaluation of the dynamics at each time step. Implicit differentiation is utilized to compute derivatives for this representation, and we exploit intermediate results from our interior-point method to return useful, smooth gradients to an upper-level optimizer.
+
+To demonstrate the capabilities of this representation, we utilize optimization-based dynamics and iLQR in a bi-level optimization framework for planning. We provide a number of optimization-based dynamics models and examples in simulation including: an acrobot with joint limits, a cart-pole experiencing friction, gait generation for a Raibert hopper, a belly-flop soft landing for a rocket subject to thrust limits, and a planar-push manipulation task. We compare our approach to MuJoCo, contact-implicit trajectory optimization, and gradients generated with randomized smoothing.
+
+Specifically, our contributions are:
+\begin{itemize}
+	\item A novel framework for optimization-based dynamics that can be used with trajectory optimization methods that require gradients
+	\item An interior-point method that can efficiently evaluate constrained optimization problems and return smooth gradients
+	\item A collection of optimization-based dynamics models and examples from locomotion, aerospace, and manipulation domains that demonstrate the proposed bi-level trajectory optimization framework
+\end{itemize}
+
+In the remainder of this chapter, we first review related work on bi-level approaches to trajectory optimization in Section \ref{od_related_work}. Next, we provide background on implicit integrators in Section \ref{od_background}. Then, we present our optimization-based dynamics representation, including an interior-point method for solving this problem class in Section \ref{od}. We provide a collection of optimization-based dynamics models that are utilized to perform trajectory optimization, and comparisons, in Section \ref{od_results}. Finally, we conclude with a discussion of limitations to this approach in Section \ref{od_limitations} and directions for future work in Section \ref{od_future_work}.
+
+\section{Related Work}\label{od_related_work}
+Bi-level optimization \cite{sinha2017review} is a framework where an upper-level optimizer utilizes the results, i.e., solution and potentially gradients, of a lower-level optimization problem. Approaches typically either implicitly solve the lower-level problem and compute gradients using the solution, or explicitly represent the optimality conditions of the lower-level problem as constraints in the upper-level problem. For example, the MuJoCo simulator \cite{todorov2012mujoco} has been employed in an implicit bi-level approach for whole-body model predictive control of a humanoid robot \cite{koenemann2015whole}. The lower-level simulator solves a convex optimization problem in order to compute contact forces for rigid-body dynamics, and the results are utilized to perform rollouts and return finite-difference gradients to the upper-level iLQR optimizer. In contrast, explicit approaches have directly encoded the linear-complementarity-problem contact dynamics as constraints in a direct trajectory optimization method \cite{yunt2006trajectory, posa2014direct}. A related approach formulates contact dynamics as lower-level holonomic constraints \cite{mastalli2020crocoddyl}. Implicit integrators, which are a special-case of optimization-based dynamics and are widely used in collocation methods \cite{stryk1993numerical}, have been explored with differentiable dynamic programming generally \cite{jallet2022implicit} and specifically for models that require cloth \cite{zimmermann2021dynamic} or contact \cite{chatzinikolaidis2021trajectory} simulation. Implicit dynamics have also been trained to represent non-smooth dynamics \cite{pfrommer2021contactnets}, although this work has not been utilized for trajectory optimization. Direct methods with implicit lower-level problems have been used in locomotion applications for tracking reference trajectories with model predictive control \cite{lecleach2021fast} and a semi-direct method utilizes a lower-level friction problem for planning through contact events \cite{landry2019bilevel}. A related, sequential operator splitting framework is proposed in \cite{sindhwani2017sequential} and a derivative-free method that generates gradients via randomized smoothing for iLQR is also proposed \cite{suh2022bundled}. In this work we focus on implicit lower-level problems that can include cone constraints and indirect methods, specifically iLQR, as the upper-level optimizer.
+
+\section{Background}\label{od_background}
+In this section we provide background on implicit integrators, which we will generalize to optimization-based dynamics in the following section.
+
+\subsection{Implicit integrators}    
+Unlike explicit integrators, i.e., $x_{t+1} = f_t(x_t, u_t)$, implicit integrators are an implicit function of the next state \cite{brudigam2020linear, manchester2016quaternion}, which cannot be separated from the current state and control input:
+\begin{equation}
+	f_t(x_{t+1}, x_t, u_t) = 0, \label{od_implicit_dynamics}
+\end{equation}
+and are often used for numerical simulation of stiff systems due to improved stability and accuracy compared to explicit integrators, at the expense of increased computation \cite{wanner1996solving}.
+
+For direct trajectory optimization methods that parameterize states and controls and allow for dynamic infeasibility during iterates, such integrators are easily utilized since the state at the next time step is already available as a decision variable to the optimizer \cite{stryk1993numerical}. However, for indirect methods, like iLQR, that enforce strict dynamic feasibility at each iteration via rollouts, evaluating (\ref{od_implicit_dynamics}) requires a numerical solver to find a solution that satisfies this implicit function for given problem data.
+
+In practice, the next state can be found efficiently and reliably using Newton's method. Typically, the current state is used to initialize the solver and less than 10 iterations are required to solve the root-finding problem to machine precision.
+
+Having satisfied (\ref{od_implicit_dynamics}) to find the next state, we can compute the dynamics Jacobians using the implicit-function theorem. First, the dynamics are approximated to first order:
+\begin{equation}
+	\frac{\partial f_t}{\partial x_{t+1}} \delta x_{t+1} + \frac{\partial f_t}{\partial x_t} \delta x_t + \frac{\partial f_t}{\partial u_t} \delta u_t  = 0,
+\end{equation}
+and then we solve for $\delta x_{t+1}$:
+\begin{equation}
+	\delta x_{t+1} = -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \Big(\frac{\partial f_t}{\partial x_t} \delta x_t
+	+ \frac{\partial f_t}{\partial u_t} \delta u_t \Big).
+\end{equation}
+The Jacobians:
+\begin{align}
+	\frac{\partial x_{t+1}}{\partial x_t} &= -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \frac{\partial f_t}{\partial x_t}, \\
+	\frac{\partial x_{t+1}}{\partial u_t} &= -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \frac{\partial f_t}{\partial u_t}. \label{od_implicit_integrator_jacobians}
+\end{align}
+are returned at each time step.
+
+\section{Optimization-Based Dynamics} \label{od}
+In the previous section, we presented dynamics with implicit integrators that can be evaluated during rollouts and differentiated. In this section, we present a more general representation: optimization-based dynamics, which solve a constrained optimization problem in order to evaluate dynamics and use the implicit-function theorem to compute gradients by differentiating through the problem's optimality conditions.
+
+\subsection{Problem}
+For dynamics we require: fast and reliable evaluation, gradients that are useful to an upper-level optimizer, and (ideally) tight constraint satisfaction. We consider problems of the form:
+\begin{align}
+	x_{t+1} \in z^*(\theta) = \underset{z \in \mathcal{K} \:| \: c(z; \theta) = 0 }{\mbox{arg min}} \ell(z; \theta),
+	\label{od_argmin}
+\end{align}
+with decision variable $z \in \mathbf{R}^k$, problem data $\theta \in \mathbf{R}^p$, objective $\ell : \mathbf{R}^k \times \mathbf{R}^p \rightarrow \mathbf{R}$, equality constraints $c : \mathbf{R}^k \times \mathbf{R}^p \rightarrow \mathbf{R}^q$, and cone $\mathcal{K}$, which compactly represents combinations of free, positive-orthant, and second-order-cone constraints. Many problems from robotics can be specified in this form. For example, the objective could be the Lagrangian for a system, the cone constraints can represent joint limits, the problem data might comprise the current state and control, $\theta = (x_t, u_t)$, and the next state belongs to the optimal solution set. 
+
+\subsection{Interior-point method}
+One of the primary challenges in optimizing (\ref{od_argmin}) is selecting a solver that is well-suited to the requirements imposed by dynamics representations. Solvers for this class of problem are generally categorized as first-order projection \cite{stellato2020osqp, o2016conic, garstka2019cosmo} or second-order interior-point methods \cite{domahidi2013ecos, vandenberghe2010cvxopt}. The first approach optimizes (\ref{od_argmin}) by splitting the problem and alternating between inexpensive first-order methods, and potentially non-smooth, projections onto the cone. The second approach formulates and optimizes barrier subproblems, using second-order methods, along a central path, eventually converging to the cone's boundary in the limit \cite{boyd2004convex}. Second-order semi-smooth methods also exist \cite{ali2017semismooth}.
+
+The first-order projection-based methods, while fast, often can only achieve coarse constraint satisfaction and, importantly, the gradients returned are usually subgradients, which are less useful to an optimizer. In contrast, interior-point methods exhibit fast convergence, can achieve tight constraint satisfaction \cite{nocedal2006numerical}, and can return smooth gradients using a relaxed central-path parameter.
+
+Based on these characteristics, we utilize an interior-point method \cite{nocedal2006numerical} to optimize (\ref{od_argmin}). The idea behind this approach is that the cone constraints are handled using a logarithmic barrier and a sequence of relaxed, and easier to solve subproblems, optimized using Newton's method, converges to a solution of the original problem. 
+
+The optimality conditions for a barrier subproblem are:
+\begin{align}
+	\partial \ell(z; \theta) / \partial z + (\partial c(z; \theta) / \partial z)^T \lambda - \nu &= 0, \label{od_opt_cond_lag}\\
+	c(z; \theta) &= 0, \label{od_opt_cond_eq} \\
+	z \circ \nu &= \mu \mathbf{e}, \label{od_opt_cond_comp} \\
+	z \in \mathcal{K}, \, \nu &\in \mathcal{K}^*, \label{od_opt_cond_ineq}
+\end{align}
+with duals $\lambda \in \mathbf{R}^q$ and $\nu \in \mathbf{R}^k$, cone product denoted with the $\circ$ operator, central-path parameter $\mu \in \mathbf{R}_{+}$, and dual cone $\mathcal{K}^*$ \cite{domahidi2013ecos}. We consider free, nonnegative, and second-order cones.
+
+To find a stationary point of (\ref{od_opt_cond_lag}-\ref{od_opt_cond_ineq}), for a fixed central-path parameter $\mu$, we consider $w = (z, \lambda, \nu) \in \mathbf{R}^{k + q + k}$ and a residual $r : \mathbf{R}^{k + q + k} \times \mathbf{R}^p \times \mathbf{R}_{+} \rightarrow \mathbf{R}^{k + p + k}$ comprising (\ref{od_opt_cond_lag}-\ref{od_opt_cond_comp}). A search direction, $\Delta w \in \mathbf{R}^{k + q + k}$, is computed using the residual and its Jacobian with respect to the decision variables at the current point. A backtracking line search is performed to ensure that a candidate step respects the cone constraints and reduces the norm of the residual. Once the residual norm is below a desired tolerance, we cache the current solution $w_{\mu}$, the central-path parameter is decreased, and the procedure is repeated until the central-path parameter is below a desired tolerance. We refer to \cite{boyd2004convex, nocedal2006numerical} for additional background on these methods.
+
+\subsection{Implicit differentiation} 
+To differentiate (\ref{od_argmin}), we apply the implicit-function theorem (\ref{intro_solution_sensitivity}) to the residual at an intermediate solution, $w_{\mu}$. In practice, we find that performing implicit differentiation with a solution point having a relaxed central-path parameter returns smooth gradients that improve the convergence behavior of the upper-level optimizer. 
+
+\subsection{Algorithm}
+The complete algorithm is summarized in Algorithm \ref{od_ip_algo} and we provide an open-source implementation of an interior-point solver.
+
+\begin{algorithm}[H]
+	\caption{Differentiable Interior-Point Method}\label{od_ip_algo}
+	\begin{algorithmic}[1]
+		\Procedure{OPTIMIZE}{$z, \theta$}
+		\State \textbf{Parameters}: $\beta = 0.5, \gamma = 0.1$,
+		\State \indent $\epsilon_{\mu} = 10^{-4}, \epsilon_{r} = 10^{-8}$
+		\State \textbf{Initialize}: $z \in \mathcal{K}$, $\lambda = 0, \nu \in \mathcal{K}^*, \mu = 1.0, w_{\mu} = \{\}$
+		\State $\bar{r} = r(w; \theta, \mu)$
+		\State \textbf{Until} $\mu < \epsilon_{\mu}$ \textbf{do}
+		\State \indent $\Delta w = (\Delta z, \Delta \lambda, \Delta \nu) = (\partial r / \partial w)^{-1} \bar{r}$
+		\State \indent $\alpha \leftarrow 1$
+		\State \indent \textbf{Until} $z - \alpha \Delta z \in \mathcal{K}$, $\nu - \alpha \Delta \nu \in \mathcal{K}^*$ \textbf{do}
+		\State \indent \indent $\alpha \leftarrow \beta \alpha$
+		\State \indent $\bar{r}_{+} = r(w-\alpha\Delta w; \theta, \mu)$
+		\State \indent \textbf{Until} $\|\bar{r}_{+}\| < \|\bar{r}\|$ \textbf{do}
+		\State \indent \indent $\alpha \leftarrow \beta \alpha$
+		\State \indent \indent $\bar{r}_{+} = r(w-\alpha\Delta w; \theta, \mu)$
+		\State \indent $w \leftarrow w - \alpha \Delta w$
+		\State \indent $\bar{r} \leftarrow \bar{r}_{+}$
+		\State \indent \textbf{If} $\|\bar{r}\| < \epsilon_{r}$ \textbf{do}
+		\State \indent \indent $w_{\mu} \leftarrow w_{\mu} \cup w$
+		\State \indent \indent $\mu \leftarrow \gamma \mu$
+		\State $\partial w / \partial \theta \leftarrow \textbf{Differentiate}(w_{\mu}, \theta)$ \Comment{Eq. \ref{intro_solution_sensitivity}}
+		\State \textbf{Return} $w, \partial w / \partial \theta$
+		\EndProcedure
+	\end{algorithmic}
+\end{algorithm}
+
+\section{Results}\label{od_results}
+We formulate optimization-based dynamics models and use iLQR to perform bi-level trajectory optimization for a number of examples that highlight how these representations can be constructed and demonstrate that trajectories for non-smooth and constrained dynamics can be optimized. Additionally, we provide a comparison of our approach with MuJoCo using finite-difference gradients, contact-implicit trajectory optimization, and gradients generated via randomized smoothing.
+
+Throughout, we use implicit midpoint integrators, quadratic costs, and for convenience, employ an augmented Lagrangian method to enforce any remaining trajectory-level constraints (e.g., terminal constraints), not handled implicitly by the dynamics representation. Our implementation, models, and all of the experiments are available here:
+\begin{center}
+\url{https://github.com/thowell/optimization_dynamics}.
+\end{center}
+
+\subsection{Acrobot with joint limits}
+
+We model an acrobot \cite{tedrake2014underactuated} with joint limits on the actuated elbow. These limits are enforced with a signed-distance constraint,
+\begin{equation}
+	\phi(q) = \begin{bmatrix}\pi / 2 - q_{\mbox{e}} \\ q_{\mbox{e}} + \pi / 2 \end{bmatrix} \geq 0, \label{od_joint_limits}
+\end{equation}
+where $q \in \mathbf{R}^2$ is the system's configuration and $q_{\mbox{e}}$ is the elbow angle. Additional constraints (\ref{intro_sdf}-\ref{intro_impact_complementarity}) encode impacts when joint limits are reached. Relaxing the complementarity constraint via a central-path parameter, introducing a slack variable for the signed-distance function $\phi$, and combining this reformulation with the system's dynamics results in a problem formulation (\ref{od_opt_cond_lag}-\ref{od_opt_cond_ineq}) that can be optimized with Algorithm \ref{od_ip_algo}.
+
+The system has $n = 4$ states and $m = 1$ controls. We plan a swing-up trajectory over a horizon $T = 101$ with a time step $h = 0.05$. The optimizer is initialized with random controls. We compare unconstrained and joint-limited systems, the optimized motions are shown in Fig. \ref{od_acrobot_trajectories}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.225\textwidth]{optimization_dynamics/acrobot_no_limits.png}
+	\includegraphics[width=.225\textwidth]{optimization_dynamics/acrobot_limits.png}
+	\caption[Comparison of acrobot swing-up behaviors]{Optimized trajectories for acrobot systems without (left) and with (right) joint limits performing a swing-up. Red and green elbow colors indicate violation or non-violation of the joint limits, respectively.}
+	\label{od_acrobot_trajectories}
+\end{figure}
+
+The unconstrained system violates joint limits, while the joint-limited system reaches the limits without exceeding them and finds a motion utilizing additional pumps. Additionally, we compare our optimization-based dynamics with the MuJoCo physics simulator and gradients provided via finite-differencing. For the unconstrained system, the optimizer is able to successfully find a swing-up trajectory. For the joint-limited system, the trajectory optimizer fails. We also note that MuJoCo is unable to enforce hard joint limits and that such constraints typically require tuning the solver parameters to produce realistic looking behavior. The results are summarized in Table \ref{od_acrobot_results}.
+
+\begin{table}[H]
+	\centering
+	\caption[Numerical results for acrobot swing-up]{Comparison of objective, iterations, goal constraint violation, and solve time between MuJoCo and optimization-based dynamics with nominal and joint-limited models for acrobot. When limited, the MuJoCo model violates the joint limits and fails at the swing-up task.}
+	\begin{tabular}{c c c c c}
+		\toprule
+		&
+		\textbf{MuJoCo} &
+		\textbf{MuJoCo (limited)} &
+		\textbf{Ours} &
+		\textbf{Ours (limited)} \\
+		\toprule
+		objective & 395.6 & 1.9e{6} & 48.9 & 84.2 \\
+		iterations & 207  & 95 & 256 & 907 \\
+		violation & 3e{-}4 & 0.2 & 5e{-}4 & 1e{-}3\\
+		time (s) & 0.9 & 1.0 & 0.5 & 6.5\\
+		\toprule
+	\end{tabular}
+	\label{od_acrobot_results}
+\end{table}
+
+\subsection{Cart-pole with Coulomb friction}
+
+A cart-pole \cite{tedrake2014underactuated} is modeled that experiences Coulomb friction \cite{moreau2011unilateral} on both its slider and pendulum arm. We use the constraints \eqref{socp_mdp_constraints} to model stick-slip behavior.
+
+The system has $n = 4$ states and $m = 1$ controls. We plan a swing-up trajectory for a horizon $T = 51$ and time step $h = 0.05$. The optimizer is initialized with an impulse at the first time step and zeros for the remaining initial control inputs. We compare the trajectories optimized for systems with increasing amounts of friction, see Fig. \ref{od_cartpole_state}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.275\textwidth]{optimization_dynamics/cartpole_no_friction.png}
+	\includegraphics[width=.275\textwidth]{optimization_dynamics/cartpole_friction.png}
+	\caption[Comparison of cart-pole swing-ups with friction]{Optimized trajectories for cart-pole performing a swing-up without (left, friction coefficient $=0$) and with (right, friction coefficient $=0.35$) joint friction.}
+	\label{od_cartpole_state}
+\end{figure}
+
+In the presence of friction, the system performs a more aggressive maneuver at the end of the trajectory in order to achieve the swing-up. The results are summarized in Table \ref{od_cartpole_results}.
+
+\begin{table}[H]
+	\centering
+	\caption[Numerical results for cart-pole swing-up with friction]{Comparison of objective, iterations, goal constraint violation, and solve time for cart-pole model with different friction coefficients.}
+	\begin{tabular}{c c c c c c}
+		\toprule
+		\textbf{Friction} &
+		\textbf{0.0} &
+		\textbf{0.01} &
+		\textbf{0.1} &
+		\textbf{0.25} & 
+		\textbf{0.35} \\
+		\toprule
+		objective & 5.0 & 5.5 & 11.6 & 76.3 & 163.1\\
+		iterations & 456 & 485 & 406 & 472 & 943\\
+		violation & 1e{-}4 & 5e{-}4 & 6e{-}4 & 1e{-}3 & 5e{-}3 \\
+		time (s) & 0.36 & 2.8 & 3.1 & 4.6 & 9.8\\
+		\toprule
+	\end{tabular}
+	\label{od_cartpole_results}
+\end{table}
+
+\subsection{Hopper gait}
+
+We generate a gait for a Raibert hopper \cite{raibert1989dynamically}. The system's dynamics are modeled as a nonlinear complementarity problem \cite{lecleach2021fast}. The 2D system has four generalized coordinates: lateral and vertical body positions, body orientation, and leg length. There are $m = 2$ control inputs: a body moment and leg force. The state is $n = 8$, comprising the system's current and previous configurations. The  horizon is $T = 21$ with time step $h = 0.05$. The initial state is optimized and a trajectory-level periodicity constraint is employed to ensure that the first and final states, with the exception of the lateral positions, are equivalent. Finally, we initialize the solver with controls that maintain the system in an upright configuration.
+
+We compare our implicit bi-level approach to a direct method for contact-implicit trajectory optimization \cite{manchester2020variational} that transcribes the problem and solves it with Ipopt \cite{wachter2006implementation}. We use the same models, cost functions, and comparable optimizer parameters and tolerances. 
+
+The complexity of the classic iLQR algorithm is: $O(T m^3)$ \cite{tassa2007receding}, while a direct method for trajectory optimization that exploits the problem's temporal structure is: $O\Big(T (n^3 + n^2 m) \Big)$ \cite{wang2009fast}. The interior-point method for the dynamics generally has complexity: $O(a^3)$, although specialized solvers can reduce this cost, where $a$ is the number of primal and dual variables \cite{nocedal2006numerical}. The complexity of optimization-based dynamics and iLQR is typically dominated by the cost of the interior-point method, which is incurred at each time step in the planning horizon, so the overall complexity is $O(T a^3)$. The hopper problem has $a = 20$ and $n = 8$ and $m = 2$ with our approach. For the contact-implicit approach, the controls are augmented with contact variables, increasing the dimension to $m = 17$ at each time step. As a result, contact-implicit trajectory optimization has lower complexity in the case where a structure exploiting direct method is employed, although this is not necessarily the case when a general-purpose solver like Ipopt is called.
+
+An optimized gait is shown in Fig. \ref{od_hopper_gait}. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.4\textwidth]{optimization_dynamics/hopper_gait_1.png}
+	\caption[Hopper gait]{Hopper gait. Optimized template (red) for the system's body (orange) and foot (blue) trajectories is repeated to form a gait.}
+	\label{od_hopper_gait}
+\end{figure}
+
+We find that our implicit approach requires fewer, but more expensive iterations, while contact-implicit trajectory optimization requires more, but less expensive iterations. Additionally, our approach more consistently returns good trajectories. Numerical comparison results are provided in Table \ref{od_hopper_bilevel_comparison}.
+
+\begin{table}[H]
+	\centering
+	\caption[Numerical results for hopper gait]{Comparison between contact-implicit trajectory optimization (direct) and optimization-based dynamics + iLQR (ours) for hopper-gait examples. The objective, iterations, gait constraint violation, and solve times are compared.}
+	\small
+	\begin{tabular}{c c c c c c c}
+		\toprule
+		&
+		\textbf{Direct (1)} &
+		\textbf{Direct (2)} &
+		\textbf{Direct (3)} &
+		\textbf{Ours (1)} &
+		\textbf{Ours (2)} &
+		\textbf{Ours (3)} 
+		\\
+		\toprule
+		objective & 3.5 & 20.4 & 2.9 & 3.5 & \textbf{19.8} & \textbf{2.4} \\
+		iterations & 122 & 114 & 107 & \textbf{38} & \textbf{47} & \textbf{25} \\
+		violation & \textbf{1\text{e-}9} & \textbf{1\text{e-}9} & \textbf{1\text{e-}9} & 3\text{e-}4 & 3\text{e-}4 & 9e{-}4\\
+		time (s) & 2.0 & 2.0 & 1.8 & \textbf{0.3} & \textbf{0.4} & \textbf{0.3}\\
+		\toprule
+	\end{tabular}
+	\label{od_hopper_bilevel_comparison}
+\end{table}
+
+\subsection{Rocket landing}
+
+We plan a soft-landing for a rocket with 6 degrees of freedom that must transition from a horizontal to vertical orientation prior to landing while respecting thrust constraints. Unlike prior work that enforces such constraints at the optimizer level \cite{blackmore2010minimum}, we instead enforce these constraints at the dynamics level. This enables the optimizer to provide smooth controls to the dynamics, which then internally constrain the input to satisfy the system's limits at every iteration.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.2\textwidth]{optimization_dynamics/starship_ghost.png}
+	\caption[Rocket belly-flop soft-landing plan]{Position trajectory (orange) for rocket performing soft landing. The system first reorients from a horizontal to vertical pose before landing with zero velocity in a target zone while respecting thrust constraints.}
+	\label{od_rocket_ghost}
+\end{figure}
+
+The cone projection problem, which finds the thrust vector that is closest to the optimizer's input thrust while satisfying constraints, is formulated as:
+\begin{equation}
+	\begin{array}{ll}
+		\underset{u}{\mbox{minimize}} & \frac{1}{2} \|u - \bar{u}\|_2^2 \\
+		\mbox{subject to} & \|u_{2:3}\|_2 \leq u_1, \\
+		& u_{\mbox{min}} \leq u_1 \leq u_{\mbox{max}},
+	\end{array} \label{od_cone_projection}
+\end{equation}
+where $u, \bar{u} \in \mathbf{R}^3$ are the optimized and provided thrust vectors, respectively, $u_1$ is the component of thrust along the longitudinal axis of the rocket, $u_{\mbox{min}}$ and $u_{\mbox{max}}$ are limits on this value.
+
+The system has $n = 12$ states and $m = 3$ controls that are first projected using (\ref{od_cone_projection}) before being applied to dynamics. The planning horizon is $T = 61$ and time step is $h = 0.05$. The controls are initialized with small random values, the initial pose is offset from the target, and the rocket has initial downward velocity. A constraint enforces the rocket's final pose, a zero velocity, vertical-orientation configuration in a landing zone.
+
+The optimizer requires 547 iterations and takes 8.1 seconds to find a plan that successfully reorients the rocket prior to landing while respecting the thrust constraints. Without the cone constraint, the optimizer requires 521 iterations and 1.9 seconds to find a solution. However, the thrust cone constraint is violated at the first time steps. The optimized position trajectory is shown in Fig. \ref{od_rocket_ghost}.
+
+\subsection{Planar push}
+For the canonical manipulation problem of planar pushing \cite{hogan2016feedback}, we optimize the positions and forces of a robotic manipulator's circular end-effector in order to slide a planar block into an reoriented goal pose (Fig.~\ref{od_planar_push}).
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.3\textwidth]{optimization_dynamics/planar_push_rotate_crop_2.png}
+	\caption[Plan for planar-push task]{Optimized trajectories for planar-push task. The pusher (blue) and block (orange) paths are shown for a plan that maneuvers the block from a pose at the origin to a goal pose.}
+	\label{od_planar_push}
+\end{figure}
+
+The system's end-effector is modeled as a fully actuated particle in 2D that can move the block (with 2D translation and orientation) via impact and friction while the two systems are in contact. The block is modeled with point friction at each of its four corners and a signed-distance function, modeled as a $p$-norm with $p=10$, is employed that enables the end-effector to push on any of the block's sides.
+
+The system has $n = 10$ states, $m = 2$ controls, the planning horizon is $T = 26$, and the time step is $h = 0.1$. We initialize the end-effector with a control input that overcomes stiction to move the block. The block is initialized at the origin with the pusher in contact on its left side, and the block is constrained at the trajectory-level to reach a goal pose.
+
+We compare the smooth gradients returned by differentiating through our interior-point solver with randomized smoothing to generate a zero-order gradient bundle \cite{suh2022bundled}. We use $N=100$ samples and noise sampled from a zero-mean unit Gaussian with scaling $\sigma=1.0e\mbox{-}4$. Ultimately, we find that both approaches result in similar convergence behavior of the upper-level optimizer. However, the gradient-bundle approach necessitates parallel computation of dynamics evaluations (which we do not explore in our comparison) in order to be a tractable approach, whereas the implicit-function theorem is much more efficient in a serial-computational setting. Results are provided in Table \ref{od_planarpush_results}.
+
+\begin{table}[H]
+	\centering
+	\caption[Gradient comparison between implicit gradients and gradient bundles for planar-push task]{Comparison between gradients generated as zero-order gradient bundles and via the implicit-function theorem for planar-push translation (T) and rotation (R) tasks. $^*$Gradient bundles are evaluated serially.}
+	\begin{tabular}{c c c c c}
+		\toprule
+		&
+		\textbf{Bundle (T)} &
+		\textbf{Bundle (R)} &
+		\textbf{Implicit (T)} &
+		\textbf{Implicit (R)}
+		\\
+		\toprule
+		iterations & 18 & \textbf{32} & \textbf{17} & 33 \\
+		time (s) & $+100.0^*$ & $+100.0^*$ & \textbf{8.0} & \textbf{18.3} \\
+		\toprule
+	\end{tabular}
+	\label{od_planarpush_results}
+\end{table}
+
+\section{Limitations}\label{od_limitations}
+
+One of the primary drawbacks to this approach is the lack of convergence guarantees for finding a solution that satisfies the dynamics representation. In practice, we find that the solver converges reliably. However, there are cases where the solver fails to meet specified tolerances. In this event we have the optimizer return the current solution and its sensitivities. We find that occasional failures like this often do not impair overall planning and that the optimizer can eventually find a dynamically feasible trajectory. Just as robust, large-scale solvers such as Ipopt \cite{wachter2006implementation} fallback to their restoration mode when numerical difficulties occur, our basic interior-point method is likely to be improved by including such a fallback routine, perhaps specific to a particular system. Additionally, we find that standard techniques such as: problem scaling, appropriate hyperparameter selection, and warm starting greatly improve the reliability of this approach.
+
+Other potential weaknesses are the increased serial nature of the approach and cost of evaluating the dynamics and their gradients. First, iLQR is a serial algorithm, dominated by forward rollouts and backward Riccati recursions that cannot be parallelized. Similarly, the interior-point solver is a serial method dominated by a matrix factorization and back substitution that is generally not amenable to parallelization either. Second, because an iterative solver is utilized to evaluate the dynamics, calls to the dynamics are inherently more expensive compared to an explicit dynamics representation. However, such overhead can potentially be mitigated with a problem-specific solver that can exploit specialized constraints or sparsity, unlike an off-the-shelf solver's generic routines.
+
+\section{Future Work} \label{od_future_work}
+In this work we have presented a bi-level optimization framework that utilizes lower-level optimization-based dynamics for planning. This representation enables expressive dynamics by including constraint handling, internal states, and additional physical behavior modeling at the dynamics level, abstracted away from the upper-level optimizer, enabling classically unconstrained solvers to optimize motions for more complex systems.
+
+There are numerous avenues for future work exploring optimization-based dynamics for bi-level trajectory optimization. First, in this work we explore constrained optimization problems solved with a second-order method. Another interesting problem class to consider are energy-based models \cite{lecun2006tutorial}, potentially optimized with first-order Langevin dynamics \cite{schlick2010molecular}. Second, we find that returning gradients optimized with a relaxed central-path parameter greatly improves the convergence behavior of the upper-level optimizer. An analysis of, or method for, returning gradients from the lower-level problem that best aid an upper-level optimizer would be useful. Finally, this bi-level framework could be extended to a tri-level setting where the highest-level optimizer autotunes an objective to generate model predictive control policies in an imitation-learning setting.
+

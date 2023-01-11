@@ -1,0 +1,121 @@
+% Stanford University PhD thesis style -- modifications to the report style
+% This is unofficial so you should always double check against the
+% Registrar's office rules
+% See http://library.stanford.edu/research/bibliography-management/latex-and-bibtex
+% 
+% Example of use below
+% See the suthesis-2e.sty file for documentation
+%
+\documentclass[10pt]{report}
+\usepackage{suthesis-2e}  % (modified) Stanford thesis style file
+
+% useful packages
+\usepackage{graphicx}  % figures
+\usepackage{gensymb}  % \degree
+\usepackage{siunitx}  % SI units
+\usepackage{tabularx}  % nice single page tables
+\usepackage{longtable}  % tables spanning multiple pages
+\usepackage{hyperref}  % URLs
+\usepackage[autostyle, english = american]{csquotes}  % quote orientation
+\MakeOuterQuote{"}
+
+\usepackage{algorithm}
+\usepackage{booktabs} 
+\usepackage{url}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{tikz, tikzscale}
+\usepackage{pgfplots}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{subcaption}
+\usepackage{bbding}
+\usepackage{pifont}
+\usepackage{cases}
+\usepackage{caption}
+\usetikzlibrary{backgrounds}
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\usepackage{cancel}
+\usepackage{tabstackengine}
+\stackMath
+
+\pgfplotsset{compat=1.15,
+	legend style={font=\footnotesize},
+}
+
+% custom definitions
+\def\checkmark{\tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;} 
+\def\scalecheck{\resizebox{\widthof{\checkmark}*\ratio{\widthof{x}}{\widthof{\normalsize x}}}{!}{\checkmark}}
+
+\pgfplotsset{
+	legend image with text/.style={
+		legend image code/.code={%
+			\node[anchor=center] at (0.3cm,0cm) {#1};
+		}
+	},
+}
+
+% define colors
+\definecolor{orange}{RGB}{255,153,51}
+\definecolor{cyan}{RGB}{51,255,255}
+\definecolor{magenta}{RGB}{255,0,255}
+
+\newcommand{\colorhref}[3][blue]{\href{#2}{\color{#1}{#3}}}%
+
+% macros
+\newcommand{\cost}{{c}}
+\newcommand{\precost}{{l}}
+\newcommand{\state}{{x}}
+\newcommand{\nextstate}{{x'}}
+\newcommand{\control}{{u}}
+\newcommand{\objective}{{J}}
+\newcommand{\residual}{{r}}
+\newcommand{\app}{{MJPC}}
+
+\newcommand{\plan}{{\mathbf{\Pi}}}
+
+% use png first, otherwise pdf
+% (useful for faster compile times, for final submission switch order)
+\DeclareGraphicsExtensions{.png,.pdf}
+%\DeclareGraphicsExtensions{.png,.pdf}
+
+\begin{document}
+\title{Numerical Optimization For Things That Move: \\ 
+Simulation, Planning, and Control}
+\author{Taylor Athaniel Howell}
+\dept{Mechanical Engineering}
+\principaladviser{Allison Okamura}
+\firstreader{Zachary Manchester}
+\secondreader{Mac Schwager}
+
+% no signature or copyright pages in online submission
+% (they are added by the library)
+
+% including chapters, no .tex extension necessary
+\beforepreface
+%\include{preface_acknowledgements}
+\afterpreface
+\include{ch_intro}
+\include{ch_background}
+\include{ch_dojo}
+\include{ch_altro}
+\include{ch_optimization_dynamics}
+\include{ch_calipso} 
+\include{ch_direct_policy_optimization}
+\include{ch_contact_implicit_control} 
+\include{ch_predictive_sampling}
+
+% uncomment below if you have an appendix
+% \appendix
+% \chapter{A Long Proof}
+
+\bibliographystyle{IEEEtran}  % can change to fit your field e.g. pnas2009
+{\small \bibliography{references}} % no .bib extension necessary
+
+
+% adds a non-numbered signature page at end (for printing on ACID-FREE paper)
+% (remember to comment out when submitting final version)
+%\onlinesignature
+
+\end{document}

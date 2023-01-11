@@ -1,0 +1,336 @@
+\chapter{Fast Constrained Trajectory Optimization}
+
+Trajectory optimization is a widely used tool with many important applications in robotic motion planning and control. However, most existing algorithm implementations fall into one of two categories: either they rely on general-purpose off-the-shelf solvers for non-convex problems that are numerically robust and capable of handling constraints but tend to be slow, or they use custom numerical methods that are fast but lack robustness and have limited or no ability to deal with constraints. This chapter presents ALTRO (Augmented Lagrangian TRajectory Optimizer), a novel algorithm for solving constrained trajectory optimization problems that bridges this gap by offering fast convergence, numerical robustness, and the ability to handle general state and action constraints.
+
+\vspace*{\fill}
+
+\noindent ALTRO: A Fast Solver for Constrained Trajectory Optimization. Taylor A. Howell$^*$, Brian Jackson$^*$, and Zachary Manchester. International Conference on Intelligent Robots and Systems. 2019.
+
+\pagebreak
+
+\section{Introduction}
+Trajectory optimization is a powerful tool for planning, enabling the synthesis of dynamic motions for complex underactuated robotic systems. This general framework can be applied to robots with nonlinear dynamics and constraints where other motion planning paradigms---such as sample-based planning, inverse dynamics, or differential flatness---are impractical or ineffective.
+
+Direct methods transcribe states and actions as decision variables and solve (\ref{intro_trajopt}) using general-purpose solvers such as SNOPT \cite{gill2005snopt} or Ipopt \cite{wachter2006implementation}, and tend to be versatile and robust. It is straight forward to provide an initial state trajectory to the solver in such methods, even if it is dynamically infeasible. Direct transcription \cite{pardo2016evaluating} and direct collocation \cite{hargraves1987direct} are common direct algorithms. 
+
+Alternatively, indirect methods leverage the structure of (\ref{intro_trajopt}) to solve a sequence of smaller sub-problems using dynamic programming. These are anytime algorithms, meaning they are always dynamically feasible, allowing state and action trajectories at any iteration to be used in a tracking controller. However, it is often difficult to find a suitable initial guess for the action trajectory. Historically, indirect methods have been considered less robust and less suitable for reasoning about general state and action constraints, but they tend to be fast and amenable to implementation in embedded systems. Methods include Differential Dynamic Programming (DDP) \cite{mayne1966second} and Iterative LQR (iLQR)\cite{li2004iterative}, as well as various shooting methods~\cite{keller2018numerical}. 
+
+In this chapter we present ALTRO (Augmented Lagrangian TRajectory Optimizer), a trajectory optimization algorithm that combines the best characteristics of both direct and indirect methods, namely: speed, small problem size, numerical robustness, handling of state and action constraints, anytime dynamic feasibility, and infeasible state initialization. Our contributions are a number of enhancements to an algorithm that utilizes iLQR within an augmented Lagrangian framework to handle constraints, including:
+\begin{itemize}
+	\item a numerically robust square-root backward pass
+	\item reformulations for infeasible initialization and free-time problems
+	\item a solution polishing phase that returns highly accurate solutions
+\end{itemize} 
+
+In the remainder of the chapter, Section \ref{altro_related_work} provides an overview of related work. Then, Section \ref{altro_background} provides background on inequality-constrained augmented Lagrangian methods and matrix square roots. Next, we present ALTRO in Section \ref{altro_algorithm}. In Section \ref{altro_results} we highlight these solver enhancements with examples including a cart-pole and car. Finally, we discuss the algorithm's limitations in Section \ref{altro_limitations} and directions for future work in Section \ref{altro_future_work}.
+
+\section{Related Work} \label{altro_related_work}
+Several methods have been proposed to incorporate constraints into indirect methods: box constraints on actions \cite{tassa2014control} and stage-wise inequality constraints on the states \cite{xie2017differential,lin1991differential} have been handled by solving a constrained quadratic program at each step of the backward pass; a projection method was devised that satisfies linearized terminal state and stage state-action constraints \cite{giftthaler2018family}; augmented Lagrangian methods have been proposed \cite{plancher2017constrained}, including hybrid approaches that also solve constrained quadratic programs for stage state-action constraints \cite{lantoine2012hybrid,lin1991differential}; and mixed state-action constraints have also been handled using a penalty method \cite{farshidian2017efficient}. 
+
+\section{Background} \label{altro_background}
+In this section we provide background on optimizing inequality-constrained problems using augmented Lagrangian methods and matrix square roots.
+
+\paragraph{Inequality-constrained augmented Lagrangian method.}
+Classically, augmented Lagrangian methods are utilized to handle equality-constrained optimization problems \eqref{intro_equality_constrained}. However, with small modifications to the algorithm it is possible to also handle inequality constraints \cite{toussaint2014novel}. 
+
+For mixed problems, 
+\begin{equation}
+	\begin{array}{ll}
+		\underset{x}{\mbox{minimize }}  & c(x) \\
+		\mbox{subject to } & g(x) \, \{\leq,=\}\, 0, \\
+	\end{array}
+	\label{altro_equality_inequality_constrained}
+\end{equation}
+we formulate an augmented Lagrangian with indicator penalties:
+\begin{equation}
+L_{\mathcal{A}}(x; \lambda, \rho) = c(x) + \lambda^T g(x)  +\frac{1}{2}g(x)^T I_{\rho} g(x), \label{altro_augmented_lagrangian_indicator}
+\end{equation}
+where $I_{\rho}$ is a diagonal matrix defined as,
+\begin{equation}
+	I_{\rho}^{(i)} = 
+	\begin{cases} 
+		0 & \text{if } g^{(i)}(x) < 0 \land \lambda^{(i)} = 0 \land \, i \in \mbox{\textbf{inequality}}\\
+		\rho & \text{otherwise} .
+	\end{cases}
+\end{equation}
+The dual update becomes:
+\begin{equation}\label{altro_dual_update}
+	\lambda_{+}^{(i)} = \begin{cases}
+		\lambda^{(i)} + \rho g^{(i)}(x) & i \in \mbox{\textbf{equality}}, \\
+		\max \Big(0, \lambda^{(i)} + \rho g^{(i)}(x)\Big) & i \in \mbox{\textbf{inequality}},
+	\end{cases}
+\end{equation} 
+and the penalty update:
+\begin{equation}\label{altro_penalty_update}
+	\rho_{+} = \phi(\rho),
+\end{equation}
+remains a monotone update. The augmented Lagrangian procedure remains the same: minimize \eqref{altro_augmented_lagrangian_indicator} for fixed duals and penalty values, dual update \eqref{altro_dual_update}, penalty update \eqref{altro_penalty_update}, and repeat until convergence to a desired constraint tolerance is achieved.
+
+\paragraph{Matrix square roots.}
+For matrices $A, B \in \mathbf{S}_{++}^{n}$, we can utilize the individual matrix square-roots $\sqrt{A}$ and  $\sqrt{B}$ to compute $\sqrt{A + B}$ as follows:
+\begin{align}
+	A + B &= [\sqrt{A}^T\, \sqrt{B}^T]\begin{bmatrix} \sqrt{A} \\ \sqrt{B} \end{bmatrix},\\
+	&= F^T F, \\
+	&= R^T Q^T Q R, \\
+	&= R^T R, 
+\end{align}
+where $F \in \mathbf{R}^{2n \times n}$ is the matrix factorized by a QR decomposition, the product of two orthogonal matrices is the identity (i.e., $Q^T Q = I)$, and the upper triangular matrix returned by the procedure:
+\begin{equation}
+\sqrt{A + B} = R,
+\end{equation} 
+is the solution. We define,
+\begin{equation}
+	\sqrt{A + B} = \mbox{\textbf{QR}}\Big(\begin{bmatrix} \sqrt{A} \\ \sqrt{B} \end{bmatrix}\Big).
+\end{equation}
+The complexity of this operation is $\mathbf{O}(n^3)$ using the Householder algorithm.
+
+We can also compute $\sqrt{A - B}$ using the individual matrix square-roots. We perform rank-one downdates on $\sqrt{A}$ using the rows of $\sqrt{B}$:
+\begin{equation}
+	\sqrt{A - B} = \mbox{\textbf{DD}}\Big(\sqrt{A}, \sqrt{B}\Big).
+\end{equation}
+The complexity of this operation is also $\mathbf{O}(n^3)$.
+
+\section{ALTRO} \label{altro_algorithm}
+ALTRO is a two-stage algorithm. The first stage rapidly solves a constrained trajectory optimization problem to a coarse tolerance using iLQR within an augmented Lagrangian framework, similar to \cite{plancher2017constrained}. The optional secondary stage performs solution polishing, utilizing this coarse solution to warm start an active-set method that achieves high-precision constraint satisfaction. Problem reformulations for infeasible-initialization and free-time problems work both stages.
+
+\paragraph{Problem.} The ALTRO algorithm solves problems of the form:
+\begin{equation}
+	\begin{array}{ll}
+		\underset{u_{1:T-1}}{\mbox{minimize }} & c_T(x_T) + \sum \limits_{t = 1}^{T-1} c_t(x_t, u_t)\\
+		\mbox{subject to } & x_{t+1} = f_t(x_t, u_t),\phantom{\mathcal{K},} \quad \quad \quad \, t = 1,\dots,T-1,\\
+		& g_t(x_t, u_t) \, \{\leq,=\}\, 0,\phantom{\,_{t+1}\mathcal{K}_t}\quad t = 1, \dots, T - 1,\\
+		& g_T(x_T)\phantom{u_t} \, \{\leq,=\}\, 0, \\
+		& (x_1 \, \text{given}). \label{altro_problem}
+	\end{array}
+\end{equation}
+
+\subsection{Constrained Iterative Linear Quadratic Regulator}
+The problem \eqref{altro_problem} is reformulated for the augmented Lagrangian method:
+\begin{equation}
+	\begin{array}{ll}
+		\underset{u_{1:T-1}}{\mbox{minimize }} & \ell_T(x_T; \lambda_T, \rho) + \sum \limits_{t = 1}^{T-1} \ell_t(x_t, u_t; \lambda_t, \rho)\\
+		\mbox{subject to } & x_{t+1} = f_t(x_t, u_t),\phantom{\mathcal{K},} \quad \quad \quad \, t = 1,\dots,T-1,\\
+		& (x_1 \, \text{given}), \label{altro_augmented_lagrangian_problem}
+	\end{array}
+\end{equation}
+where,
+\begin{align}
+	\ell_t(x_t, u_t; \lambda_t, \rho) &= c_t(x_t, u_t) + \lambda_t^T g_t(x_t, u_t) + \frac{1}{2} g_t(x_t, u_t)^T I_{\rho} g_t(x_t, u_t), \label{stage_altro_augmented_lagrangian}\\
+	\ell_T(x_T; \lambda_T, \rho) &= c_T(x_T) + \lambda_T^T g_T(x_T) + \frac{1}{2} g_T(x_T)^T I_{\rho} g_T(x_T). \label{terminal_altro_augmented_lagrangian}
+\end{align}
+The augmented Lagrangian objective (\ref{stage_altro_augmented_lagrangian}, \ref{terminal_altro_augmented_lagrangian}) and the dynamics satisfy the iterative linear quadratic regulator form. As a result, for fixed values of the dual variables and penalty parameter we can directly utilize the standard algorithm. Data for the LQR sub-problems are now:
+\begin{align}
+	W_t &= [c_t]_{xx}(\bar{x}_t, \bar{u}_t) + [g_t]_{x}(\bar{x}_t, \bar{u}_t)^T I_{\rho} [g_t]_{x}(\bar{x}_t, \bar{u}_t), \\
+	R_t &= [c_t]_{uu}(\bar{x}_t, \bar{u}_t) + [g_t]_{u}(\bar{x}_t, \bar{u}_t)^T I_{\rho} [g_t]_{u}(\bar{x}_t, \bar{u}_t), \\
+	H_t &= [c_t]_{xu}(\bar{x}_t, \bar{u}_t) + [g_t]_{x}(\bar{x}_t, \bar{u}_t)^T I_{\rho} [g_t]_{u}(\bar{x}_t, \bar{u}_t), \\
+	w_t &= [c_t]_{x}(\bar{x}_t, \bar{u}_t) + [g_t]_{x}(\bar{x}_t, \bar{u}_t)^T \Big(\lambda_t + I_{\rho} g_t(\bar{x}_t, \bar{u}_t) \Big), \\
+	r_t &= [c_t]_{u}(\bar{x}_t, \bar{u}_t) + [g_t]_{u}(\bar{x}_t, \bar{u}_t)^T \Big(\lambda_t + I_{\rho} g_t(\bar{x}_t, \bar{u}_t) \Big), \\
+	A_t &= [f_t]_{x}(\bar{x}_t, \bar{u}_t), \\
+	B_t &= [f_t]_{u}(\bar{x}_t, \bar{u}_t), \\
+	C_t &= 0,
+\end{align}
+where a Gauss-Newton approximation of the constraints is utilized.
+
+\subsection{Square-root backward pass}
+For augmented Lagrangian methods to achieve fast convergence the penalty term must be increased to large values, which can result in severe numerical ill-conditioning. The condition number of a matrix is the ratio of its maximum and minimum eigenvalues. In the case of iLQR, the value-function matrix can become ill-conditioned due to the recursive nature of the backward pass.
+
+To help mitigate this issue, we introduce a numerically robust backward pass inspired by the square-root Kalman filter \cite{kaminski1971discrete} and derive a recursive expression for this matrix square root: 
+\begin{equation}
+	S_t = \sqrt{P_t}. \\
+\end{equation}
+At the final time step,
+\begin{align}
+	S_T = \mbox{\textbf{cholesky}}(W_T),
+\end{align}
+is computed using a Cholesky factorization. At subsequent steps in the recursion, we need to modify \eqref{intro_cost_to_go_matrix}:
+\begin{equation}
+P_t = \begin{bmatrix} I \\ K_t \end{bmatrix}^T 
+	  \begin{bmatrix} X_t & Y_t^T \\ Y_t & Z_t \end{bmatrix}
+	  \begin{bmatrix} I \\ K_t \end{bmatrix},
+\end{equation}
+represented here in matrix form, where 
+\begin{align}
+	X_t = W_t + A_t^T P_{t+1} A_t, \\
+	Y_t = H_t + A_t^T P_{t+1} B_t, \\
+	Z_t = R_t + B_t^T P_{t+1} B_t,
+\end{align}
+to depend on the square-root matrix from the the following (i.e., $t+1$) time step. The Cholesky factorization is:
+\begin{equation}
+	P_t = \begin{bmatrix} I \\ K_t \end{bmatrix}^T 
+		   \begin{bmatrix} \Psi_t^T & O \\ \Lambda_t^T & \Gamma_t^T \end{bmatrix}
+		   \begin{bmatrix} \Psi_t & \Lambda_t \\ O & \Gamma_t \end{bmatrix}
+		   \begin{bmatrix} I \\ K_t \end{bmatrix}
+		= \begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix}^T 
+		   \begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix},
+\end{equation}
+where, 
+\begin{align}
+	\Psi_t & = \sqrt{X_t} = \mbox{\textbf{cholesky}}(W_t) + S_{t+1} A_t, \\
+	\Lambda_t &= \Psi_t^{-T} Y_t, \\
+	\Gamma_t &= \sqrt{Z_t - Y_t^T X_t^{-1} Y_t} =  \mbox{\textbf{DD}}\Big(\mbox{\textbf{cholesky}}(R_t) + S_{t+1} B_t, \Psi_t^{-T} Y_t \Big).
+\end{align}
+The square-root update is then, 
+\begin{equation}
+	S_t = \mbox{\textbf{QR}}\Big(\begin{bmatrix} \Psi_t + \Lambda_k K_k \\ \Gamma_t K_t \end{bmatrix} \Big),
+\end{equation}
+and replaces \eqref{intro_cost_to_go_matrix}.
+
+\subsection{Infeasible initialization}
+Desired state trajectories can often be identified (e.g., from sampling-based planners or expert knowledge), whereas determining a sequence of actions that will produce a desired state trajectory is often challenging. Infeasible initialization is enabled by modifying the nominal discrete-time dynamics $d_t : \mathbf{R}^{n} \times \mathbf{R}^{m_t} \rightarrow \mathbf{R}^{n_{t+1}}$,
+\begin{equation}
+	x_{t+1} = f_t(x_t,u_t) = d_t(x_t, v_t) + s_t \label{altro_slack_dynamics},
+\end{equation}
+with slacks $s_t \in \mathbf{R}^{n_t}$ to make the system artificially fully actuated, by augmenting the actions at each time step such that $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + n_{t+1}}$. The dynamics Jacobians are then,
+\begin{align}
+	[f_t]_x &= [d_t]_x, \\
+	[f_t]_u &= \begin{bmatrix} [d_t]_v & I \end{bmatrix}.
+\end{align}
+Given a trajectory, $\hat{z} = (\hat{x}_1, \hat{v}_1, \dots, \hat{x}_T)$, the slacks at each time step are initialized as,
+\begin{equation}
+	s_t = \hat{x}_{t+1} - d_t(\hat{x}_t, \hat{v}_t), \label{altro_slack_actions}
+\end{equation}
+the difference between the nominal dynamics and the provided trajectory. Additionally, constraints, 
+\begin{equation}
+	g_t(x_t, u_t) = s_t = 0, \quad t = 1, \dots, T-1
+\end{equation}
+are added to ensure that the algorithm converges to solutions for the nominal dynamics. Importantly, due to the properties of the augmented Lagrangian method, these constraints will be satisfy in the limit, allowing the optimizer to iteratively reduce the infeasibility and converge to solutions for the nominal dynamics.
+
+\subsection{Free-time problem}
+For many planning problems, it is desirable to allow the optimizer to determine the total duration of the trajectory. This is accomplished by encoding the time step, $h \in \mathbf{R}_{++}$, as a decision variable.
+
+The dynamics are formulated as: 
+\begin{equation}
+	x_{t+1} = f_t(x_t, u_t) = \begin{bmatrix} d_t(y_t, u_t) \\ s_t \end{bmatrix} \label{altro_free_time_dynamics},
+\end{equation}
+where the actions, $u_t = (v_t, s_t) \in \mathbf{R}^{m_t + 1}$, are augmented with an additional variable, $s_t = \sqrt{h_t} \in \mathbf{R}$, representing the square-root of the time step, ensuring positive values; and an augmented state, $x_t = (y_t, s_{t-1}) \quad t = 2, \dots T$, that propagates slack variables along the trajectory. The dynamics Jacobians are then, 
+\begin{align}
+	[f_t]_x &= \begin{bmatrix} [d_t]_y \\ 0 \end{bmatrix}, \\
+	[f_t]_u &= \begin{bmatrix} [d_t]_v & [d_t]_s \\ 0 & 1 \end{bmatrix}.
+\end{align}
+Additional constraints are added to enforce equality between time steps,
+\begin{equation}
+	g_t(x_t, u_t) = x_t^{(s)} - u_t^{(s)} = 0 \quad t = 2, \dots, T,
+\end{equation}
+to prevent the optimizer from exploiting time-discretization errors in the system dynamics.
+
+\subsection{Solution polishing} \label{altro_projected_newton}
+The primary phase of ALTRO solves problems to low or medium precision, with respect to constraint satisfaction, and returns a solution $\bar{z} = (\bar{x}_1, \bar{u}_1, \dots, \bar{x}_T)$. A solution-polishing phase then utilizes this solution to warm start an active-set method \cite{nocedal2006numerical} that can often achieve machine-precision constraint satisfaction in a handful of iterations.
+
+\paragraph{Problem.} Phase two optimizes the following minimum-norm \cite{nocedal2006numerical} problem:
+\begin{equation}
+	\begin{array}{ll}
+		\underset{z}{\mbox{minimize }}  & \| z - \bar{z} \|_J \\
+		\mbox{subject to } & \bar{E}(z) = 0, \\
+	\end{array} \label{altro_solution_polishing}
+\end{equation}
+over the objective space, 
+\begin{equation}
+	J = \begin{bmatrix} 
+			[c_1]_{xx} & [c_1]_{xu} & & \\ 
+			[c_1]_{ux} & [c_1]_{uu} & & \\ 
+			& & \ddots & \\ & & & [c_T]_{xx} 
+		\end{bmatrix},
+\end{equation}
+subject to the set of active constraints, include the dynamics, equality, and active inequality constraints,
+\begin{equation}
+	E(z) = \begin{bmatrix} 
+			f_1(x_1, u_1) - x_{t+1} \\ 
+			\vdots \\
+			f_{T-1}(x_{T-1}, u_{T-1}) - x_{T} \\
+			\bar{g}_1(x_1, u_1) \\
+			\vdots \\
+			\bar{g}_T(x_T)
+		\end{bmatrix},
+\end{equation} 
+denoted with an overbar ($\bar{\phantom{x}}$). 
+
+\paragraph{Algorithm.} 
+We iteratively perform the following update: 
+\begin{align}
+	\Delta z &= J^{-1} \bar{E}_z^T (\bar{E}_{z} J^{-1} \bar{E}_{z}^T)^{-1} \bar{E}_{z}, \\
+	z &\leftarrow z + \alpha \Delta z,
+\end{align}
+using a line search procedure on the parameter $\alpha \in [0, 1]$ to ensure that,
+\begin{equation}
+	\|\bar{E}(z + \alpha \Delta z)\|_{\infty} < \|\bar{E}(z)\|_{\infty},
+\end{equation} 
+at each iteration. For additional efficiency, the factorization $(\bar{E}_{z} J^{-1} \bar{E}_{z}^T)^{-1}$ is reused, and is only updated when convergence slows or the active set changes.
+
+\paragraph{Implementation.}
+Our implementation of ALTRO is available at:
+\begin{center}
+\url{https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl}.
+\end{center}
+
+\section{Results} \label{altro_results}
+In this section we highlight ALTRO's capabilities by planning trajectories for a cart-pole and a simple car.
+
+\subsection{Cart-pole}
+A swing-up is planned for a cart-pole system \cite{tedrake2014underactuated}. We utilize third-order Runge Kutta integration, a fixed time step $h = 0.05$, and a planning horizon $T = 101$. Additionally, we encode action limits, $-3 \leq u \leq 3$, and a goal state constraint, $x_T = (0, \pi, 0, 0)$.
+
+\paragraph{Constraints.}
+In Fig. \ref{altro_control_limits}, we compare the trajectories optimized with (orange) and without (blue) action limits. ALTRO is able to enforce action limits while successfully planning a swing-up.
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.85\columnwidth,height=5.0cm]{altro/cartpole_control.tikz}
+	\end{center}
+	\caption[Action trajectory comparison for cart-pole with control limits]{Cart-pole action trajectory comparison with (orange) and without (blue) control limits.}
+	\label{altro_control_limits}
+\end{figure}
+
+\paragraph{Backward pass condition number.}
+In Fig. \ref{altro_bp_condition_number} we compare the standard LQR backward pass with ALTRO's square-root version. The square-root version consistently reduces the condition number by a few orders of magnitude over multiple augmented Lagrangian dual updates.
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.65\columnwidth, height=5.0cm]{altro/condition_number_compare.tikz}
+	\end{center}
+	\caption[Condition number comparison between standard and square-root backward pass]{Condition number comparison between standard (blue) and square-root (orange) backward pass.}
+	\label{altro_bp_condition_number}
+\end{figure}
+
+\paragraph{Solution polishing.}
+In this final cart-pole example, in Fig. \ref{altro_solution_polishing_comparison}, we compare constrained iLQR with ALTRO's solution-polishing phase. After the maximum constraint violation is less $1\text{e-}3$, the algorithm switches from phase one to phase two. By performing polishing, ALTRO is able to rapidly achieve machine-precision constraint satisfaction ($1\text{e-}8$) compared to the slow tail convergence characteristic of constrained iLQR.
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.85\columnwidth,height=5.0cm]{altro/cartpole_c_max.tikz}
+	\end{center}
+	\caption[Convergence comparison between constrained iLQR and ALTRO solution polishing]{Constraint convergence comparison between constrained iLQR (blue) and ALTRO with solution polishing (orange) in terms of wall-clock time.}
+	\label{altro_solution_polishing_comparison}
+\end{figure}
+
+\subsection{Car}
+A simple car, modeled as a simple wheeled system \cite{lavalle2006planning}, is tasked with moving from a start to goal pose. We utilize midpoint integration, a nominal time step $h = 0.05$, and a planning horizon $T = 101$. Additionally, we encode action limits, $-1 \leq u \leq 1$, and a goal state constraint, $x_T = (1, 1, 0)$.
+
+\paragraph{Infeasible initialization.}
+We provide the optimizer with a linear interpolation of states between the start and goal poses. The resulting position trajectory is shown in Fig. \ref{altro_car_infeasible}. With infeasible initialization 132 iterations are required versus 146 iterations for standard initialization.
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[height=6.0cm]{altro/car_altro.tikz}
+	\end{center}
+	\caption[Position trajectory planned with infeasible initialization for car]{Plan (orange) from start (red) to goal (green) positions for car with infeasible-state initialization (black).}
+	\label{altro_car_infeasible}
+\end{figure}
+
+\paragraph{Free-time problem.}
+We now solve the same problem with our free-time formulation. A large cost on the (square-root) time step variables encourages the plan to reach the goal quickly. In Fig. \ref{altro_car_free_time} we compare the action trajectories for the free-time (orange) and nominal problems (blue). 
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.85\columnwidth,height=7.0cm]{altro/free_time.tikz}
+	\end{center}
+	\caption[Comparison of action trajectories for fixed- and free-time problems for car planning problem]{Comparison of nominal (blue) and free-time (orange) solutions for car planning problem.}
+	\label{altro_car_free_time}
+\end{figure}
+The nominal problem takes $5$ seconds, whereas the free-time problem finds a $2.2$ second plan with bang-bang controls.
+
+\section{Limitations} \label{altro_limitations}
+In our experiments, we find that the free-time formulation is more sensitive to initializations compared with direct methods and that careful problem design is required to achieve goods results. We hypothesize that making the time step a decision variable adversely effects the forward rollouts.
+
+Similarly, the algorithm often fails to utilize the infeasible initialization if the augmented Lagrangian penalty is not properly initialized. As a result, the designer should carefully select the initial penalty value to balance rapidly setting the slack values to zero and retaining the initialization.
+
+Finally, predictive control applications typically perform a single update before returning a new solution. In the case of ALTRO, this would require good warm starting of both the nominal trajectory and the augmented Lagrangian dual and penalty variables. Heuristics for warm starting the latter values in order to enable rapid convergence of the constraints remain for future work.
+
+\section{Future work} \label{altro_future_work}
+We have presented a versatile high-performance trajectory optimization algorithm, ALTRO, that combines the advantages of both direct and indirect methods: fast convergence, infeasible initialization, anytime dynamic feasibility, and high-precision constraint satisfaction.
+
+Future work will implement the algorithm in C/C++ for deployment on hardware in a predictive control framework. Additional improvements include parallel line searches for increased efficiency and support for additional constraints in the augmented Lagrangian framework in order to handle second-order and positive semidefinite cones \cite{boyd2004convex}. A final avenue to pursue is making the solver differentiable  with respect to problem data (e.g., objective terms or model parameters) via implicit differentiation \cite{amos2018differentiable} for auto-tuning \cite{agrawal2020learning} or learning applications.

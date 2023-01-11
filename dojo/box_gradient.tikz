@@ -1,0 +1,21 @@
+\begin{tikzpicture}[]
+\begin{axis}[
+  legend style = {{at={(0.01,0.01)},anchor=south west, draw=none}},
+  ylabel = {gradient},
+  axis equal image = {true},
+  xlabel = {force},
+  hide axis = {false},
+  xticklabels={,,},
+  yticklabels={,,},
+  ticks=none
+]
+
+\addplot[color=black, mark=none, style={ultra thick}, forget plot] coordinates {
+    	(0,0)
+    	(0.1,0)
+    	(0.1,0.1)
+    	(0.2,0.1)
+    };
+
+\end{axis}
+\end{tikzpicture}

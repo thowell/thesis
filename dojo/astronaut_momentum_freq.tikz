@@ -1,0 +1,95 @@
+\begin{tikzpicture}
+    \node[label={[label distance=0.5cm,text depth=-1ex,rotate=+90]right:momentum drift}] at (-1.5,-2.5) {};
+   \begin{axis}[
+    height=3.5cm, 
+    width=4.00cm,
+    title={linear ($\mbox{N}{\cdot}\mbox{s}$)},
+    title style={at={(axis description cs:0.5,+0.95)},anchor=south},
+    % ylabel=momentum drift,
+    x label style={at={(axis description cs:0.5,+0.1)},anchor=north},
+    y label style={at={(axis description cs:+0.2,-0.9)},anchor=west},
+    name=plot1,
+    xmode=log,
+    ymode=log, 
+    % ymin={1.0e-15}, 
+    % ymax={10.0}, 
+    ]
+
+    \addplot+[thick, color=cyan, mark options={cyan}]
+        table[row sep={\\}]
+        {
+            \\
+            0.1   1.3242137294884463e-14  \\
+            0.03   6.374814601399156e-14  \\
+            0.01  6.333597910924106e-13  \\
+            0.003  1.4232215438801071e-11  \\
+            0.001  2.0116277631154766e-11  \\
+        }
+        ;
+    % \addlegendentry {Dojo}
+    \addplot+[thick, color=orange, mark options={orange}]
+        table[row sep={\\}]
+        {
+            \\
+            0.1     0.2537509294047687  \\
+            0.03     0.13329090415896896  \\
+            0.01    0.031950287799238086  \\
+            0.003    0.0118108813911165  \\
+            0.001   0.003848000777474403  \\
+            % 0.0003   0.0011683948660582606  \\
+            % 0.0001  0.0004001951883694909  \\
+            % 0.00003  0.00011832844655419055  \\
+        }
+        ;
+    \end{axis}
+
+    \begin{axis}[
+    height=3.5cm, 
+    width=4.00cm,
+    title={angular ($\mbox{N}{\cdot}\mbox{m}{\cdot}\mbox{s}$)},
+    xlabel=time step (s),
+    title style={at={(axis description cs:0.5,+1.10)},anchor=south},
+    x label style={at={(axis description cs:0.5,-0.25)},anchor=north},
+    y label style={at={(axis description cs:+0.53,.5)},anchor=south},
+    name=plot2,
+    legend style={font=\Large},
+    legend style={at={(0.03,0.5)}, anchor=west},
+    legend style={nodes={scale=0.60, transform shape}}, 
+    legend image post style={mark=none},
+    at=(plot1.below south west), anchor=above north west,
+    xmode=log,
+    ymode=log, 
+    % ymin={1.0e-15}, 
+    % ymax={10.0}, 
+    ]
+
+    \addplot+[thick, color=cyan, mark options={cyan}]
+        table[row sep={\\}]
+        {
+            \\
+            0.1    4.483971698652621e-15  \\
+            0.03   7.108321503284066e-15  \\
+            0.01   6.737043531126504e-14  \\
+            0.003   2.7034666353297637e-13  \\
+            0.001  6.28397699414799e-13  \\
+        }
+        ;
+    \addlegendentry {Dojo}
+    \addplot+[thick, color=orange, mark options={orange}]
+        table[row sep={\\}]
+        {
+            \\
+            0.1      0.10697020989012122  \\
+            0.03      0.06341772304776187  \\
+            0.01     0.012031448351619721  \\
+            0.003     0.004909450783225365  \\
+            0.001    0.0015748150811421998  \\
+            % 0.0003    0.00047458431712851844  \\
+            % 0.0001   0.00015974790982533  \\
+            % 0.00003  4.6965539423291694e-5  \\
+        }
+        ;
+    \addlegendentry {MuJoCo}
+    \end{axis}
+    
+\end{tikzpicture}

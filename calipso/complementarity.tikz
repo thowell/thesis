@@ -1,0 +1,14 @@
+\begin{tikzpicture}[]
+	\begin{axis}[
+		axis equal image = {true},
+		xmin=-0.2, xmax=1.2, ymin=-0.2, ymax=1.2,
+		hide axis = {true},yticklabels={,,},xticklabels={,,}]
+		
+		\draw[-{Triangle},ultra thick] (-1,0)--(0.575,0) node[right]{$a$};
+		\draw[-{Triangle},ultra thick] (0,-1)--(0,0.575) node[above]{$b$};
+		\draw[line width=4pt, magenta] (0.0, -0.01)--(0,0.5);
+		\draw[line width=4pt, magenta] (-0.01,0)--(0.5,0.0);
+		
+	\end{axis}
+\end{tikzpicture}
+

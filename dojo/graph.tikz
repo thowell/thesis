@@ -1,0 +1,29 @@
+\begin{tikzpicture}[font=\scriptsize]
+\begin{scope}[every node/.style={circle,thick,draw}]
+    \node[line width=1mm] (A)[align=center, draw=orange] at (0,0) {$\textbf{body}$ \\ $a$};
+    \node[line width=1mm] (C)[align=center, draw=orange] at (4.0,0) {$\textbf{body}$ \\ $b$};
+    \node[line width=1mm] (D)[align=center, draw=cyan] at (6.0,0) {$\textbf{joint}$ \\ $bd$};
+    \node[line width=1mm] (E)[align=center, draw=orange] at (8.0,0) {$\textbf{body}$ \\ $d$};
+    \node[line width=1mm] (F)[align=center, draw=magenta] at (10.0,0) {$\textbf{contact}$ \\ $3$};
+    \node[line width=1mm] (G)[align=center, draw=cyan] at (1.0,-1.732) {$\textbf{joint}$ \\ $ac$};
+    \node[line width=1mm] (H)[align=center, draw=cyan] at (3.0,-1.732) {$\textbf{joint}$ \\ $bc$};
+    \node[line width=1mm] (I)[align=center, draw=magenta] at (5,-1.732) {$\textbf{contact}$ \\ $1$};
+    \node[line width=1mm] (J)[align=center, draw=magenta] at (9,-1.732) {$\textbf{contact}$ \\ $2$} ;
+    \node[line width=1mm] (K)[align=center, draw=orange] at (2.0,-3.464) {$\textbf{body}$ \\ $c$} ;
+\end{scope}
+
+\begin{scope}[every node/.style={draw=white, circle},
+              every edge/.style={draw=black,line width=1mm}]
+    \path (C) edge (D);
+    \path (D) edge (E); 
+    \path (E) edge (F);
+    \path (A) edge (G);
+    \path (G) edge (K);
+    \path (K) edge (H);
+    \path (H) edge (C); 
+    \path (C) edge (I);
+    \path (C) edge (D); 
+    \path (D) edge (E);
+    \path (E) edge (J);
+\end{scope}
+\end{tikzpicture}

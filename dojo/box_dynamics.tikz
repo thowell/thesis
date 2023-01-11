@@ -1,0 +1,19 @@
+\begin{tikzpicture}[]
+\begin{axis}[
+  ylabel = {position},
+  axis equal image = {true},
+  xlabel = {force},
+  hide axis = {false},
+  xticklabels={,,},
+  yticklabels={,,},
+  ticks=none,
+]
+
+\addplot[color=black, mark=none, style={ultra thick}] coordinates {
+(0,0)
+(0.1,0)
+(0.2,0.1)
+};
+
+\end{axis}
+\end{tikzpicture}

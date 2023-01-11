@@ -1,0 +1,629 @@
+\chapter{Contact-Implicit Predictive Control}
+
+We present a general approach for controlling robotic systems that make and break contact with their environments. Contact-implicit model predictive control (CI-MPC) generalizes convex MPC to contact-rich settings by utilizing a bi-level planning formulation with lower-level contact dynamics formulated as time-varying linear complementarity problems (LCP), computed using strategic Taylor approximations about a reference trajectory. These dynamics enable the upper-level planning problem to reason about contact forces and timing, and generate entirely new contact-mode sequences online. To achieve reliable and fast numerical convergence, we devise a structure-exploiting, interior-point solver for these LCP contact dynamics and a custom trajectory optimizer for the tracking problem. We demonstrate real-time rates for CI-MPC and the ability to generate and track non-periodic behaviors; additionally, showing that the policy is robust to model mismatch and can respond to disturbances by discovering and exploiting new contact modes across a variety of robotic systems, including in simulation with a pushbot, and planar hopper, quadruped, and biped systems; and hardware experiments with a Unitree Go1 quadruped.
+
+\vspace*{\fill}
+
+\noindent Fast Contact-Implicit Model Predictive  Control. Simon Le Cleac'h$^*$, Taylor A. Howell$^*$, Shuo Yang, Chi-Yen Lee, John Zhang, Arun Bishop, Mac Schwager, and Zachary Manchester. arXiv 2107.05616. 2021.
+
+\pagebreak 
+
+\section{Introduction}
+Controlling systems that make and break contact with their environments is one of the grand challenges in robotics. Numerous approaches have been employed for controlling such systems, ranging from hybrid-zero dynamics \cite{westervelt2003hybrid, ames2014rapidly, li2021reinforcement}, to complementarity controllers \cite{aydinoglu2020contact}, to neural-network policies \cite{heess2017emergence,heiden2020neuralsim}, and model predictive control (MPC) \cite{winkler2018gait, sleiman2021unified}. There have also been numerous successes deploying such approaches on complex systems in recent years: direct trajectory optimization and LQR on Atlas \cite{kuindersma2016optimization}, smooth-contact models and differential dynamic programming on HRP-2  \cite{todorov2012mujoco, koenemann2015whole}, zero-moment point and feedback linearization on ASIMO \cite{hirai1998development}, and MPC with simplified dynamics models on Cheetah \cite{bledt2020regularized} and ANYmal \cite{lee2020learning}. However, reliable \emph{general-purpose} control techniques that can reason about contact events and can be applied across a wide range of robotic systems without requiring application-specific model simplifications, gait-generation heuristics, or extensive parameter tuning remain elusive.
+
+Our approach combines fast, differentiable rigid-body dynamics with contact, strategic approximations about a reference trajectory, and specialized numerical optimization techniques for the application of local tracking control for systems that experience contact interactions with their environments. The result is a bi-level model predictive control algorithm that can effectively reason about contact changes in the presence of large disturbances while remaining fast enough for real-time execution.
+
+We formulate contact dynamics as a complementarity problem and devise a fast interior-point solver to reliably optimize this feasibility problem. Smooth gradients are efficiently computed through the non-smooth dynamics by exploiting intermediate solutions from within this solver using implicit differentiation. To enable real-time performance for control, we pre-compute linearizations of the system's dynamics, signed-distance functions, and friction cones about a reference trajectory, while explicitly retaining complementarity constraints that encode contact switching behavior, resulting in a sequence of lower-level time-varying linear-complementarity problems (LCP) which represent the model's contact dynamics. An upper-level trajectory optimization problem is then optimized using fast linear algebra. We refer to this algorithm as \textit{Contact-Implicit Model Predictive Control} (CI-MPC).
+
+Finally, we demonstrate that CI-MPC can generate new contact sequences online and reliably track reference trajectories despite significant model mismatch and while large external disturbances are applied for a number of qualitatively different robotic systems, including: a pushbot, and planar hopper, quadruped, and biped systems in simulation; and on Unitree Go1 quadruped hardware \cite{unitree_go1}.
+
+Our contributions are:
+\begin{itemize}
+	\item Fast, approximate contact dynamics that can be reliably evaluated and efficiently differentiated with a custom interior-point solver
+	\item Structure-exploiting solvers for the contact dynamics and trajectory optimization problems
+	\item A model predictive control framework for robotic systems with contact dynamics
+	\item A collection of simulation and hardware experiments demonstrating the performance of CI-MPC on a variety of robotic systems across a range of highly dynamic tasks
+\end{itemize}
+
+In the remainder of this chapter, we first review related work on control through contact with MPC, as well as complementarity-based contact dynamics in Section \ref{cipc_related_work}. Next, we present a technical overview of MPC, our contact dynamics formulation, and a differentiable interior-point method for LCPs in Section \ref{cipc_background}. Then, we present CI-MPC in Section \ref{cimpc}. Results are presented in Section \ref{cipc_results}, including both simulation and hardware experiments. Finally, we discuss our results and limitations of this work in Section \ref{cipc_limitations} and conclude with directions for future work in Section \ref{cipc_future_work}.
+
+\section{Related Work} \label{cipc_related_work}
+In this section, we review related work on MPC for the control of dynamical systems that make and break contact with their environments and provide an overview of complementarity-based contact dynamics.
+
+\subsection{Model predictive control}
+
+Today, most successful approaches for controlling legged robots utilize MPC in combination with simplified models and heuristics originally pioneered by Raibert for hopping robots \cite{raibert1989dynamically}. The key insight of this work is that the control problem can be decoupled into a high-level controller that plans body motions while ignoring the details of the leg dynamics, and a low-level controller that determines the necessary leg motions and joint torques to generate the forces and torques on the body determined by the high-level controller.
+
+Arguably the most impressive control work on humanoids has utilized centroidal dynamics with full kinematics to enable Atlas to navigate various scenarios with obstacles \cite{dai2014whole} and perform parkour \cite{atlas2019parkour}. Integrating hardware design and controller synthesis has also recently enabled small humanoids to perform agile acrobatic maneuvers in simulation \cite{chignoli2021humanoid}.
+
+There have also been impressive advances for quadrupeds, achieved by designing hardware that aims to closely match the modeling approximations made in the controller, e.g., building very light legs \cite{bledt2020regularized}. Whole-body control, which has the benefit of simpler overall control structures and the ability to leverage a system's dynamics, has been achieved at real-time rates on hardware \cite{neunert2018whole}. Approaches that utilize both force-based MPC and whole-body control have also demonstrated agile locomotion \cite{kim2019highly}.
+
+A major limitation of these prior works is that the control policies are highly specialized to a specific robotic system. In this work, we compare CI-MPC to a number of system-specific control methods that perform quite well for their given system, but do not generalize to other systems, whereas our policy generalizes to many different systems that experience contact interactions while achieving comparable or better performance.
+
+\subsection{Complementarity-based contact dynamics}
+The classic approach for simulating rigid-body dynamics with contact interactions is a velocity-based time-stepping scheme formulated as a linear complementarity problem (LCP). The LCP searches for the next state of the system while enforcing impact and friction constraints. Solvers for this class of problems utilize pivoting methods 
+\cite{drumwright2015rapidly}, such as Lemke's algorithm \cite{cottle2009linear}, or interior-point methods \cite{kojima1991unified}. Implementations of pivoting methods can be found in general-purpose LCP solvers such as PATH \cite{dirkse1995path}, or physics engines including: Bullet \cite{coumans2019} and DART \cite{lee2018dart}. 
+
+Derivatives of LCP-based contact dynamics can be efficiently computing using implicit differentiation \cite{dini1907lezioni}. However, the quality of these results is dependent on the method employed for optimization. Pivoting approaches enforce strict complementarity at each iteration, returning solutions at non-differentiable points. As a consequence, this differentiation will return subgradients that make, typically efficient, second-order optimization slower and less reliable. In contrast, interior-point methods relax the complementarity constraints at each iteration, only converging in the limit. These intermediate results can be implicitly differentiated to return smooth gradients.
+
+In addition to simulation, contact dynamics represented as LCPs have been utilized for planning. Collocation approaches \cite{stryk1993numerical} directly encode the LCP problem as  as constraints in order to enforce contact dynamics, along with an objective specifying desired behavior, in a large non-convex problem \cite{posa2014direct}. This approach enables the optimizer to plan without pre-specified mode sequences for locomotion and simple manipulation tasks. Subsequent work improved this approach by introducing higher-order integrators for the dynamics and a numerically robust, exact $\ell_1$-penalty for handling the complementarity constraints \cite{manchester2020variational}. Alternative rollout-based approaches utilize LCPs for forward simulation and subsequently differentiate through the solution of one-step dynamics in order to compute derivatives for gradient-based optimization \cite{de2018end,werling2021fast}.
+
+Another popular contact dynamics formulation is MuJoCo's soft-contact model \cite{todorov2012mujoco}, which solves a convex optimization problem and trades physical realism for fast and reliable performance. Analytical gradients are not available so finite-difference schemes must be employed. Additionally, the LCP complementarity constraints can be relaxed, resulting in a soft-contact model that exhibits improved numerical properties in some scenarios \cite{geilinger2020add}. 
+
+\section{Background} \label{cipc_background}
+In this section, we provide technical background on MPC, our formulation for complementarity-based contact dynamics, and a differentiable interior-point method for LCPs.
+
+\subsection{Model predictive control}
+Predictive control policies \cite{richalet1978model} optimize a planning problem:
+\begin{equation}
+	u = \pi(x) = 
+	\begin{cases}
+	\begin{array}{ll}
+		\underset{x_{1:T}, u_{1:T-1}}{\mbox{minimize}} & c_T(x_T) + \sum \limits_{t = 1}^{T-1} c_t(x_t, u_t) \label{ci_pc_trajopt}\\
+		\mbox{subject to} & x_{t+1} = f_t(x_t,u_t), \quad t = 1,\dots,T-1,\\
+		& x_1 = x,
+	\end{array}
+	\end{cases}
+\end{equation}
+for a given state in order to compute actions for a dynamical system we aim to control. If planning is performed at a sufficiently high rate, the sequence of open-loop plans provide \textit{feedback}. For a system with state $x \in \mathbf{R}^{n}$, action $u \in \mathbf{R}^{m}$, time index $t$, initial state $x_1$, and discrete-time dynamics $f : \mathbf{R}^{n} \times \mathbf{R}^{m} \rightarrow \mathbf{R}^{n}$, the optimizer aims to minimize an objective with costs, $c: \mathbf{R}^{n} \times \mathbf{R}^{m} \rightarrow \mathbf{R}$, over a planning horizon $T$.
+
+Solving a (potentially) non-convex problem \eqref{ci_pc_trajopt} online can be unreliable or computation too expensive. Instead, a proxy problem is solved online that makes strategic approximations. A common simplification is to track a reference trajectory, $\bar{\tau} = (\bar{x}_1, \bar{u}_1, \dots, \bar{x}_T$), denoted with an overbar ($\bar{\phantom{a}}$), that is precomputed offline. In this setting, the computational complexity for planning is reduced by utilizing dynamics,
+\begin{equation}
+	x_{t+1} = A_t x_t + B_t u_t, \label{ci_pc_linear_dynamics}
+\end{equation}
+linearized about the reference, where $A = [f(\bar{x}, \bar{u})]_x$ and $B = [f(\bar{x}, \bar{u})]_u$; and a quadratic objective, 
+\begin{equation}
+	\frac{1}{2}x_t^T Q_t x_t + q_t^T x_t + \frac{1}{2}u_t^T R_t u_t  + r_t^T u_t, \label{cipc_quadratic_objective}
+\end{equation}
+where $Q = [c(\bar{x}, \bar{u})]_{xx}, \, q = [c(\bar{x}, \bar{u})]_x, \, R = [c(\bar{x}, \bar{u})]_{uu}, \, r = [c(\bar{x}, \bar{u})]_u$, similarly comprise a second-order expansion about the reference trajectory.
+
+This formulation, potentially with additional affine state and control constraints, is commonly referred to as \textit{linear} MPC. Without such constraints, the problem 
+(\ref{ci_pc_trajopt}) with linear dynamics \eqref{ci_pc_linear_dynamics} and quadratic objective \eqref{cipc_quadratic_objective} is the LQR problem \cite{kalman1964lqr} and is efficiently solved with a backward Riccati recursion. 
+
+Predictive control iteratively optimizes \eqref{ci_pc_trajopt}, or an approximate version of it (\ref{ci_pc_linear_dynamics} - \ref{cipc_quadratic_objective}), for an input state and the optimized controls are used to compute an action that is applied to the system. After the system evolves, the problem is re-optimized for the updated state in order to compute a new action for the system. By repeating this procedure at a high rate, feedback control is achieved \cite{wang2009fast}. In practice, applying the actions optimized with time-varying linearized dynamics and quadratic costs, to the actual nonlinear system is extremely effective, especially for applications that track a reference trajectory.
+
+\subsection{Complementarity-based contact dynamics}
+
+Contact dynamics can be simulated with a velocity time-stepping scheme \cite{stewart1996implicit}, formulated as complementarity problem \cite{cottle2009linear}: 
+\begin{align}
+	\label{cipc_feas_prob}
+	{\mbox{find}} \quad & q, \lambda,\eta, \beta, \psi \\
+	\mbox{subject to} \quad & \left[M_{+}(q - q_{-}) - M_{-}(q_{-} - q_{--})\right] / h + h C = J^T \lambda + B u, \label{cipc_smooth_dynamics}\\
+	& \gamma \circ \phi = 0, \label{cipc_impact_complementarity}\\
+	& \beta \circ \left[ P (q - q_{-})/h + \psi \textbf{1} \right] = 0, \label{cipc_friction_complementarity} \\
+	& \psi \circ \left[\mu \gamma - \textbf{1}^T \beta \right] = 0, \label{cipc_friction_velocity_complementarity}\\
+	& \phi, \gamma \geq 0, \label{cipc_impact_inequalities} \\
+	& \beta, \psi, [P (q - q_{-})/h + \psi \textbf{1}], [\mu \gamma - \textbf{1}^T \beta] \geq 0, \label{cipc_friction_inequalities}
+\end{align}
+that finds the next configuration of the system $q \in \mathbf{R}^{n_q}$ using implicitly defined velocities, $v = (q - q_{-}) / h \in \mathbf{R}^{n_v}$, where subscripts indicate previous time steps. This formulation considers a single contact point, but generalizes to systems with multiple contacts.
+The problem utilizes: the mass matrix $M: \mathbf{R}^{n_q} \rightarrow \mathbf{S}_{++}^{n_v}$; dynamics bias $C: \mathbf{R}^{n_q} \times \mathbf{R}^{n_v} \rightarrow \mathbf{R}^{n_v}$ that includes Coriolis and gravitational terms; contact Jacobian $J: \mathbf{R}^{n_q} \rightarrow \mathbf{R}^{l \times n_v}$ that maps contact forces in the contact frame into the generalized coordinates; input Jacobian $B: \mathbf{R}^{n_q} \rightarrow \mathbf{R}^{n_v \times m}$ that maps control inputs, typically joint torques, into the generalized coordinates; $P: \mathbf{R}^{n_q} \rightarrow \mathbf{R}^{p (d-1) \times n_v}$ is a mapping from the generalized velocity space to an overparameterized contact tangent space; time step $h \in \mathbf{R}_{+}$; contact forces $\lambda = (\gamma, \beta) \in \mathbf{R}^l$ defined in the contact frame, with normal force $\gamma \in \mathbf{R}$ and overparameterized friction forces $\beta \in \mathbf{R}^{p (d - 1)}$ that are constrained by a linearized friction cone; $\psi \in \mathbf{R}$ is a dual variable associated with friction, representing the magnitude of the contact point velocity; signed-distance function, $\phi: \mathbf{R}^{n_q} \rightarrow \mathbf{R}$, that returns distance between a specified contact point on the robot (e.g., feet) and the closest surface in the environment (e.g., the floor); and where $\circ$ is an element-wise (Hadamard) vector product. We use $p$ to denote the overparameterization dimension (often $p$ = 2) and $d$ to denote the environment dimension, $d = 2$ for planar systems and $d = 3$ otherwise.
+
+The smooth dynamics \eqref{cipc_smooth_dynamics} are discretized with a semi-implicit Euler scheme \cite{marsden2001discrete}; complementarity constraints (\ref{cipc_impact_complementarity}-\ref{cipc_friction_velocity_complementarity}) encode contact switching behavior; impact is encoded in \eqref{cipc_impact_complementarity} and \eqref{cipc_impact_inequalities}; and friction terms (\ref{cipc_friction_complementarity}-\ref{cipc_friction_velocity_complementarity}) and \eqref{cipc_friction_inequalities}, are derived from the maximum dissipation principle \eqref{intro_mdp}.
+
+Problem data include previous configurations $q_{-}, q_{--}$, time step $h$ and control inputs $u$. A nonlinear formulation uses the following mappings:
+\begin{align}
+	&M_{+} \leftarrow M(q), 
+	&&M_{-} \leftarrow M(q_{-}), \notag \\ 
+	&C \leftarrow C(q, (q - q_{-}) / h), 
+	&&J \leftarrow J(q),  \\ 
+	&B \leftarrow B(q), 
+	&& P \leftarrow P(q), \notag \\ 
+	& \phi \leftarrow \phi(q), \notag
+\end{align}
+evaluating these terms at the next configuration. In practice, a partial linearization of the dynamics is performed to satisfy a linear complementarity problem (LCP) \cite{stewart1996implicit}, resulting in the following mappings:
+\begin{align}
+	&M_{+} \leftarrow M(q_{-}), 
+	&&M_{-} \leftarrow M(q_{--}), \notag \\ 
+	&C \leftarrow C(q_{-}, (q_{-} - q_{--}) / h), 
+	&&J \leftarrow J(q_{-}),  \\ 
+	&B \leftarrow B(q_{-}), 
+	&& P \leftarrow P(q_{-}), \notag \\
+	& \phi \leftarrow \phi(q_{-}) + N(q{-}) (q - q_{-}), \notag
+\end{align}
+where $N = \phi_q$.
+
+\subsection{Interior-point method}
+Classically, LCPs are solved using active-set methods \cite{dirkse1995path}, which strictly enforce complementarity at each iteration. An alternative approach is interior-point methods \cite{kojima1991unified, nocedal2006numerical}, which relax these conditions during intermediate iterations, only satisfying these constraints in the limit.
+
+LCPs can be generally formulated as:
+\begin{equation}
+	\begin{array}{ll}
+		\mbox{find}       & x, y, z \\
+		\mbox{subject to} & E x + F y + f = 0,\\
+		& G x + H y + z + h = 0,\\
+		& y \circ z = 0,\\
+		& y, z \geq 0,\\
+	\end{array} \label{cipc_lcp_problem}
+\end{equation}
+with decision variables $x \in \mathbf{R}^n$, $y, z \in \mathbf{R}^m$ and problem data $\theta = (E, F, G, H, f, h)  \in \mathbf{R}^{n \times n} \times \mathbf{R}^{n \times m} \times \mathbf{R}^{m \times n} \times \mathbf{R}^{m \times m} \times \mathbf{R}^n \times \mathbf{R}^m = \mathbf{R}^p$. Interior-point methods parameterize (\ref{cipc_lcp_problem}) by a  central-path parameter $\kappa \in \mathbf{R}_{+}$ that relaxes the following bilinear constraint:
+\begin{equation}
+	y \circ z = \kappa \textbf{1},
+\end{equation}
+where $\textbf{1}$ a vector of ones. 
+
+The equality and relaxed bilinear constraints form a residual vector or solution map, $r: \mathbf{R}^{n + 2m} \times \mathbf{R}^p  \times \mathbf{R}_{+} \rightarrow \mathbf{R}^{n + 2m}$, that takes $w = (x, y, z) \in \mathbf{R}^{n + 2m}$, the problem data, and central-path parameter as inputs. The problem data and central-path parameter are fixed during optimization. In the context of contact dynamics, these data encode the mechanical properties of the robots, its current configuration and velocity, and properties of the environment like friction coefficients.
+Newton or quasi-Newton methods are used to find search directions that reduce the norm of the residual and a backtracking line search is employed to ensure that the inequality constraints are strictly satisfied for candidate points at each iteration. Once the residual is optimized to a desired tolerance, the central-path parameter is decreased and the new subproblem is warm started with the current solution and then optimized. This procedure is repeated in order to find solutions to (\ref{cipc_lcp_problem}) with $\kappa \rightarrow 0$ until the central-path parameter, also referred to as complementary slackness, is below a desired tolerance.
+
+In addition to simulating contact by solving a feasibility problem, we would like to compute gradients of these dynamics, requiring us to differentiate through an optimization problem. This is accomplished with implicit differentiation \cite{dini1907lezioni}.
+
+For the interior-point method \eqref{cipc_lcp_problem}, 
+\begin{equation}
+	r(w; \theta) = \begin{bmatrix} E x + F y + f \\ G x + H y + z + h \\ y \circ z - \kappa \textbf{1}\end{bmatrix}.
+\end{equation}
+A differentiable interior-point method is summarized in Algorithm \ref{cipc_ip_algo}.
+
+\begin{algorithm}[H]
+	\caption{Differentiable Interior-Point Method}\label{cipc_ip_algo}
+	\begin{algorithmic}[1]
+		\Procedure{Optimize}{$x, \theta$}
+		\State \textbf{Settings}: $\beta = 0.5, \gamma = 0.1, \epsilon_{\kappa} = 10^{-6}, \epsilon_{r} = 10^{-8}$
+		\State \textbf{Initialize}: $y = 0, z = \mathbf{1}, \kappa = 0.1, \kappa_{\mbox{grad}} = 10^{-4}$
+		\State \textbf{Until} $\kappa < \epsilon_{\kappa}$ \textbf{do} 
+		% \State \indent $\Delta w = (\Delta x, \Delta y, \Delta z) = (\frac{\partial r}{\partial w})^{-1} r(w; \theta, \kappa)$
+		\State \indent $\Delta w = (\frac{\partial r}{\partial w})^{-1} r(w; \theta, \kappa)$
+		\State \indent $\alpha \leftarrow 1$
+		\State \indent \textbf{Until} $(x, z) - \alpha (\Delta x, \Delta z) > 0$ \textbf{do} $\alpha \leftarrow \beta \alpha$
+		\State \indent \textbf{Until} $\|r(w-\alpha\Delta w; \theta, \kappa)\| < \|r(w; \theta, \kappa)\|$ \textbf{do}
+		\State \indent \indent $\alpha \leftarrow \beta \alpha$
+		\State \indent $w \leftarrow w - \alpha \Delta w$
+		\State \indent \textbf{If} $\|r(w; \theta, \kappa)\| < \epsilon_{r}$ \textbf{do} $\kappa \leftarrow \gamma \kappa$
+		\State $\frac{\partial w}{\partial \theta} \leftarrow \textbf{Differentiate}(w, \theta, \kappa_{\mbox{grad}})$ \Comment{Eq. \ref{intro_solution_sensitivity}}
+		\State \textbf{Return} $w, \frac{\partial w}{\partial \theta}$ 
+		\EndProcedure
+	\end{algorithmic}
+\end{algorithm}
+
+\section{Contact-Implicit Model Predictive  Control} \label{cimpc}
+In this section we present Contact-Implicit Model Predictive  Control, a tracking policy for systems that make and break contact with their environments. First, we formulate time-varying LCP contact dynamics that are selectively approximated about a reference trajectory. Then, we devise a fast solver for the resulting LCP. Next, we discuss how to compute smooth gradients through the dynamics. A bi-level planning formulation, which utilizes these dynamics, follows. To enable the policy to work well in environments with uncertain terrain we propose a contact-height heuristic. Finally, we summarize the approach and provide an algorithm for CI-MPC.
+
+\subsection{Time-varying contact dynamics}
+We formulate alternative LCP dynamics that utilize a reference trajectory, resulting in the following mappings: 
+\begin{align}
+	&M_{+} \leftarrow M(\bar{q}), 
+	&&M_{-} \leftarrow M(\bar{q}_{-}), \notag \\ 
+	&C \leftarrow C(\bar{q}, (\bar{q} - \bar{q}_{-}) / h), 
+	&&J \leftarrow J(\bar{q}),  \\ 
+	&B \leftarrow B(\bar{q}), 
+	&& P \leftarrow P(\bar{q}), \notag \\
+	& \phi \leftarrow \phi(\bar{q}) + N(\bar{q}) (q - \bar{q}). \notag
+\end{align}
+The LCP problem, formulated for an interior-point method, has the form:
+\begin{align}
+	\begin{array}{ll}
+		{\mbox{find}} & w \\
+		\mbox{subject to} 
+		& C (w - \bar{w}) + D (\theta - \bar{\theta}) = 0, \\
+		& \gamma \circ s_{\phi}  = \kappa \textbf{1}, \\
+		& \psi \circ s_{\psi} = \kappa \textbf{1}, \\
+		& \beta \circ \eta = \kappa \textbf{1}, \\
+		& \gamma, \psi, \beta, \eta, s_{\phi}, s_{\psi} \geq 0, \\
+	\end{array} \label{cipc_linearized_feas_prob}
+\end{align}
+with decision variables $w = (q, \gamma, \beta, \psi, \eta, \beta, s_{\phi}, s_{\psi})$, where slack variables, $s_{\phi}, s_{\psi} \in \mathbf{R}$, are introduced for convenience.
+
+Importantly, $C$ and $D$ are matrices that define a linear system of equations resulting from approximations about the reference trajectory and they are pre-computed offline. These contact dynamics,
+\begin{equation}
+	q_{t+1} = \textbf{LCP}_t(q_{t-1}, q_t, u_t), \label{cipc_lcp_q}
+\end{equation}
+$\textbf{LCP}_t : \mathbf{R}^{n_q} \times \mathbf{R}^{n_q} \times \mathbf{R}^m \rightarrow \mathbf{R}^{n_q}$, solve (\ref{cipc_linearized_feas_prob}) and return the configuration at the next time step. The contact forces at the current time step can also be returned.
+
+\subsection{Fast contact dynamics}
+The most expensive procedure in evaluating the LCP and computing gradients of a solution is solving the linear system of equations:
+\begin{equation}
+	R_w \Delta w = r, \label{cipc_naive_solve}
+\end{equation}
+required by the interior-point method, where $R_w = \partial r / \partial w$, and $\Delta w$ is the new search direction. 
+
+To reduce the computational cost of this routine, we exploit both the sparsity pattern and the property that most of $R_w$ remains constant across iterations and, therefore, can be pre-factorized offline \cite{yamazaki2017structure}. 
+
+We partition the LCP variables \eqref{cipc_lcp_problem} as follows: $x = q$, $y = (\gamma, \psi, \beta)$, and $z = (\eta, s_{\phi}, s_{\psi})$, and similarly split the residual: $r = (r_x, r_y, r_z)$. The Jacobian's sparsity pattern is:
+\begin{align}
+	R_w &= \begin{bmatrix}
+		E & F & 0 \\
+		G & H & I \\
+		0 & \mbox{\textbf{diag}}(z) & \mbox{\textbf{diag}}(y)
+	\end{bmatrix}, \label{cipc_Rw_sparsity}
+\end{align}
+where $I$ denotes the identity matrix. By exploiting sparsity in the third row of (\ref{cipc_Rw_sparsity}), we can form the following condensed system:
+\begin{align}
+	\begin{bmatrix}
+		E & F \\
+		G & \tilde{H} \\
+	\end{bmatrix}
+	\begin{bmatrix}
+		\Delta x \\
+		\Delta y \\
+	\end{bmatrix}
+	= 
+	\begin{bmatrix}
+		r_x \\
+		\tilde{r}_y \\
+	\end{bmatrix} \Leftrightarrow \tilde{R}_w \: \Delta \tilde{w} = \tilde{r},
+	\label{cipc_Rw_reduced}
+\end{align}
+where,
+\begin{align}
+	\tilde{H} &= H - \mbox{\textbf{diag}}(y^{-1} \circ z), \\
+	\tilde{r}_y &= r_y - y^{-1} \circ r_z, \\
+	\Delta z &= y^{-1} \circ (r_z - z \circ \Delta y),
+	\label{cipc_delta_w3}
+\end{align}
+and $y^{-1}$ denotes the element-wise reciprocal of vector $y$. This term is always well-defined because a line search enforces $y > 0$ at each iteration. 
+
+To optimize for $\Delta \tilde{w}$, we leverage the fact that, apart from the bottom-right block, $\tilde{R}_w$ can be computed offline. We perform a QR decomposition on the Schur complement of (\ref{cipc_Rw_reduced}), 
+\begin{align}
+	Q, R \leftarrow \mbox{\textbf{QR}}(\tilde{H} - G E^{-1} F),
+\end{align}
+and then solve for the search directions,
+\begin{align}
+	\Delta y &= - R^{-1} Q^T (G E^{-1} r_x - \tilde{r}_y), \\
+	\Delta x & = E^{-1} (r_x - F \Delta y).
+\end{align}
+Additionally, $E^{-1}$, $G E^{-1}$, and $G E^{-1} F$ are precomputed offline. Finally, after solving for $\Delta \tilde{w}$, we obtain $\Delta z$ with cheap vector-vector operations (\ref{cipc_delta_w3}).
+
+For a system with configuration dimension $n_q$ and $c$ contact points, the computational complexity of solving (\ref{cipc_naive_solve}) with a naive approach is $O\Big((n_q+2cd)^3 \Big)$. Our structure-exploiting approach is $O(8c^3d^3)$ during the online phase. In practice, this provides a factor of 15 speed-up, compared to LAPACK LU, for evaluating the LCP dynamics across all the robotic systems presented in this chapter and, in turn, results in a factor of 2.5 speed-up for CI-MPC.
+
+\subsection{Gradients}
+Contact dynamics gradients are computed by differentiating through the LCP problem with respect to data: $\theta = (q_{--}, q_{-}, u)$, which could also include the time step, friction coefficients, and other system values like masses or inertia terms. 
+
+At fixed points, $w^*_{\kappa}$, parameterized by a (potentially non-zero) central-path value, gradients are computed using implicit-differentiation. Importantly, at solution where $\kappa \approx 0$, this approach will return subgradients, which often fail to provide useful information through contact events. However, we exploit intermediate results from the interior-point solver, where $\kappa \neq 0$, in order to compute smooth gradients. Large values of $\kappa$ will produce smoother gradients than those computed with small values of $\kappa$, which more closely approximates a true subgradient at nondifferentiable points. Practically, we find that smooth gradients, computed using intermediate results, provides information through contact events.
+
+\subsection{Planning}
+The CI-MPC policy is formulated as: 
+\begin{equation}
+	u = \pi(x)
+	\begin{cases}
+		\begin{array}{ll}
+			\underset{x_{1:H}, u_{1:H}}{\mbox{minimize }}  & \sum \limits_{t = 1}^{H} \frac{1}{2}(x_t - \bar{x}_t)^T Q_t (x_t - \bar{x}_t) + \frac{1}{2}(u_t - \bar{u}_t)^T R_t (u_t - \bar{u}_t) \\
+			\mbox{subject to } & x_{t+1} =\textbf{LCP}_t(x_t, u_t), \quad t = 1, \dots, H-1, \\
+			& x_1 = x,
+		\end{array}
+	\end{cases}
+	\label{ci_mpc_policy}
+\end{equation}
+comprising an upper-level planning problem (\ref{ci_pc_trajopt}) that optimizes a trajectory: $\tau = (x_1, u_1,\dots, x_H, u_H) \in \mathbf{R}^{(2 n_q + m) H}$ of configurations and controls over a horizon $H$ using a state representation: $x_t = (q^{(t)}_{t-1}, q^{(t)}_{t})$, with two configurations. Lower-level LCP problems (\ref{cipc_lcp_q}) enforce the dynamics with the first state $x_1$ fixed. For convenience, we overload notation, 
+\begin{align}
+	\textbf{LCP}_t(x_t, u_t) &= \begin{bmatrix} q^{(t)}_{t} \\  \textbf{LCP}_t(q_{t-1}^{(t)}, q_t^{(t)}, u_t) \end{bmatrix}, 
+\end{align}
+for state-based LCP dynamics, and define constraints, $d_t(x_t, u_t, x_{t+1}) = x_{t+1} - \textbf{LCP}_t(x_t, u_t)$, that couple states across adjacent time steps. The constraint Jacobian,
+\begin{align}
+	\nabla d = \begin{bmatrix} 
+		-B_1 & I & 0 & 0 \\
+		0 & -A_2 & -B_2 & I \\
+		0 & 0 & 0 & \ddots 
+	\end{bmatrix},
+\end{align}
+where $d = (d_1, \cdots, d_{H-1}) \in \mathbf{R}^{2n_q(H-1)}$, is comprised of one-step dynamics Jacobians,
+\begin{equation}
+	A_t = \left[\begin{array}{c c} 0 & I \\ \frac{\partial \textbf{LCP}_t}{\partial q_{t-1}} & \frac{\partial \textbf{LCP}_t}{\partial q_{t}} \end{array} \right],\, B_t = \begin{bmatrix} 0 \\ \frac{\partial \textbf{LCP}_t}{\partial u_t} \end{bmatrix}.
+\end{equation}
+
+The planning objective is a convex quadratic function \eqref{cipc_quadratic_objective} and velocities are penalized using finite-difference approximations. Because the problem is lifted by using states comprising two configurations, these costs do not introduce coupling across more than one time step. The resulting Hessian of the objective,
+\begin{equation}
+	\nabla^2 J = \begin{bmatrix} R_1 & 0 & 0 & 0 \\ 0 & Q_2 & 0 & 0 \\ 0 & 0 & R_2 & 0 \\ 0 & 0 & 0 & \ddots \end{bmatrix},
+\end{equation}
+and its inverse,
+\begin{equation}
+	(\nabla^2 J)^{-1} = \begin{bmatrix} R^{-1}_1 & 0 & 0 & 0 \\ 0 & Q^{-1}_2 & 0 & 0 \\ 0 & 0 & R^{-1}_2 & 0 \\ 0 & 0 & 0 & \ddots \end{bmatrix},
+\end{equation}
+are block diagonal and are pre-computed offline.
+
+The resulting KKT system,
+\begin{equation}
+	\begin{bmatrix} \nabla^2 J & \nabla d^T \\ \nabla d & 0 \end{bmatrix} \begin{bmatrix} \Delta \tau \\ \Delta \nu \end{bmatrix} = \begin{bmatrix} \nabla J + \nabla d^T \nu \\ d \end{bmatrix}, \label{cipc_trajopt_kkt}
+\end{equation}
+with dual variables $\nu \in \mathbf{R}^{2 n_q (H-1)}$ associated with the constraints, uses a Gauss-Newton approximation of the constraints when computing the Hessian of the Lagrangian and is solved using a sparse $\mbox{LDL}$ solver. In the following experiments we utilize QDLDL, a general-purpose sparse solver, for its efficient implementation \cite{davis2005algorithm}. Additionally, we provide a structure-exploiting algorithm with superior complexity results in the Appendix. However our implementation of this algorithm is less performant compared to QDLDL and we do not use it yet in practice.
+
+\subsection{Contact-height heuristic}
+To enable the policy to robustly adapt to unknown variations in terrain height, we employ a simple heuristic that we find to be effective in practice. The policy maintains a height estimate, $a \in \mathbf{R}^c$, for each contact and utilizes a modified signed-distance function, 
+\begin{equation}
+	\phi_{\mbox{MPC}}(q) = \phi(q) + a,
+\end{equation}
+that is updated using the current contact height. When contact is detected, the height estimate is updated. In simulation, a threshold on the impact-force magnitude is set; and in practice, force sensors can reliably detect such an event.
+
+This simple heuristic does not affect the structure of (\ref{cipc_Rw_sparsity}) and only requires $c$ more addition operations to compute $r$ when evaluating the fast contact dynamics (\ref{cipc_naive_solve}). In our experiments, we find the heuristic to be effective and reliable across unknown terrain for the systems tested.
+
+\subsection{Algorithm}
+CI-MPC comprises offline and online stages. The offline stage generates a reference trajectory along with a set of time-varying LCP problems. In this work we employ contact-implicit trajectory optimization \cite{manchester2020variational} to design these references. Additionally, a planning horizon, $H$, typically less than the total behavior duration, is specified. During the online stage, planning is performed (\ref{ci_pc_trajopt}) for the current state over the specified horizon, and the optimized action trajectory is used to compute an action that is applied to the system. The CI-MPC policy is summarized in Algorithm \ref{cipc_alg}. 
+
+\begin{algorithm}[H]
+	\caption{Contact-Implicit Model Predictive  Control}\label{cipc_alg}
+	\begin{algorithmic}[1]
+		\Procedure{Policy}{}
+		\State \textbf{Offline}  
+		\State \indent $\bar{\tau} \leftarrow$ generate reference trajectory
+		\State \indent $\mbox{\textbf{LCP}}_t \leftarrow$ generate fast contact dynamics
+		\State \indent $H \leftarrow$ set planning horizon, 
+		\State \textbf{Online}  
+		\State \indent \textbf{For} $i = 1, \ldots, \infty$
+		\State \indent \indent $u \leftarrow \pi(x)$  \Comment{Eq. \eqref{ci_mpc_policy}}
+		\State \indent \indent $x \leftarrow \textbf{dynamics}(x, u)$
+		\State \indent \textbf{End} 
+		\EndProcedure{\textbf{End}}
+	\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Heuristics.}
+To enable real-time performance for the policy \eqref{ci_mpc_policy}, a number of heuristics are employed. First, the planning problem is only solved approximately. Instead of optimizing until convergence, a fix number of iterations are performed and then the current best solution is returned. This enables the current plan to be improved but significantly reduces the total computation required. Generally, we find that performance is greatly improved by returning approximate solutions quickly, enabling replanning with newer state information, compared to returning higher quality solutions to planning problems that are utilizing older state information. Second, the policy extensively utilizes warm starting. Providing the optimizer with a good initial guess for the solution greatly reduces the number of iterations required to converge. Initially, the policy utilizes the reference trajectory. At subsequent evaluations, the previous best solution is used.
+Third, the LCP problems are solved for a single value of the central path parameter instead of a sequence that converges to zero. In practice, we find that $\kappa \approx 1\mbox{e-}4$ is a good balance between computation time, physical accuracy, and gradient smoothness. 
+
+\section{Results} \label{cipc_results}
+
+We demonstrate the CI-MPC algorithm in simulation and on hardware by controlling a variety of robotic systems that make and break contact with their environments. In the examples we show that the policy can generate new contact sequences online; is robust to disturbances, model mismatch, and unknown terrain; and is faster than real-time, see Table \ref{cipc_timing_table}. 
+
+\begin{table}[H]
+	\centering
+	\caption[CI-MPC real-time performance in simulation]{The CI-MPC policy runs at real-time rates meaning that the time required to compute an updated control is always smaller than the reference time step (i.e., budget) and the policy is able to successfully track the specified trajectory. Experiments are run on a computer equipped with an Intel Core i9-9900 CPU and 32GB of memory.}
+	\begin{tabular}{c c c c}
+		\toprule
+		\textbf{System} &
+		\textbf{Planning Horizon} &
+		\textbf{Time Step} & 
+		\textbf{Real-Time} \\
+		\toprule
+		pushbot          & $1.60$ s & $0.04$ s & \checkmark \\ 
+		hopper           & $0.10$ s & $0.01$ s & \checkmark \\ 
+		quadruped        & $0.16$ s & $0.016$ s & \checkmark \\
+		biped            & $0.23$ s & $0.016$ s & \checkmark \\
+		\toprule
+	\end{tabular}
+	\label{cipc_timing_table}
+\end{table}
+ 
+\subsection{Simulation}
+We verify the policy performance in simulation  where we solve the nonlinear contact dynamics problem (\ref{cipc_feas_prob}) to convergence, i.e., $\kappa = 1\mbox{e-}6$. Additionally, all examples are simulated using a different sample rate, typically 5-10$\times$ faster than the reference trajectory, in order to ensure that the policy is robust to sampling rates. 
+
+\paragraph{Pushbot.}
+In this example, we demonstrate that our policy can generate new, unspecified contact sequences online in order to respond to unplanned disturbances. The system, pushbot, is modeled as an inverted pendulum with a prismatic joint located at the end of the pendulum (Fig. \ref{cipc_pushbot_push_recovery}). There are two control inputs: a torque at the revolute joint and a force at the prismatic joint. The system is located between two walls and has two contact points, one between the prismatic-joint end effector and each wall.
+
+Pushbot is tasked with remaining vertical and the policy utilizes a reference trajectory that does not include any contacts. When we apply a large impulse to the system, the policy generates a behavior that commands the prismatic joint to push against the wall in order to stabilize. By tuning the policy's cost function we can generate qualitatively different behaviors, including maintaining contact to stabilize and pushing against the wall in order to return to the nominal position. The latter behavior is shown in Fig. \ref{cipc_pushbot_push_recovery}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.45\textwidth]{ci_pc/pushbot_figure_timings.png}
+	\caption[Pushbot performing push recovery]{Pushbot performing push recovery. A disturbance (red) creates an impulse on the system and the policy generates a new contact sequence that extends the prismatic joint toward the right wall in order to make contact. After stabilizing, pushbot pushes against the wall, eventually breaking contact, in order to return to the nominal upright configuration.}
+	\label{cipc_pushbot_push_recovery}
+\end{figure}
+
+We compare CI-MPC to a method that relies on a mixed-integer quadratic program (MIQP) formulation \cite{bemporad1999control} applied to a simplified version of the pushbot (an inverted pendulum between two stiff walls). The MIQP minimizes a quadratic objective function subject to piecewise-linearized dynamics. Each linear dynamics domain corresponds to a single contact mode, and discrete decision variables are introduced to encode contact mode switches. Our CI-MPC approach is fast enough to be run online, however, this is not the case for the MIQP policy, as shown in Table \ref{cipc_pushbot_results}. Moreover, the complexity of the MIQP increases exponentially with the number of contact modes, making it an intractable approach for more complex systems. 
+
+\begin{table}[H]
+	\centering
+	\caption[Numerical comparison between CI-MPC and MIQP policies for pushbot push recovery]{Comparison between CI-MPC and MIQP policies for pushbot example. For a fixed replanning rate of 25 Hz, we report the mean and standard deviations for the optimization times and compare this to the associated time budget (0.04 s). Both policies successfully regulate the system around the equilibrium point. However, the MIQP policy is slower than real-time, whereas the CI-MPC policy always remains within time budget, ensuring real-time performance.}
+	
+	\begin{tabular}{c c c}
+		\toprule
+		\textbf{Policy} &
+		\textbf{Planning Time} &
+		\textbf{Real-Time} \\
+		\toprule
+		CI-MPC & \boldmath $0.014 \pm 0.027 \mbox{\textbf{s}}$ \unboldmath & \checkmark \\ 
+		MIQP   & $0.18  \pm 0.09$ s & \ding{53} \\ 
+		\toprule
+	\end{tabular}
+	\label{cipc_pushbot_results}
+\end{table}
+
+\paragraph{Hopper.}
+Inspired by the Raibert Hopper \cite{raibert1989dynamically}, we model a 2D hopping robot with $n_q = 4$ generalized coordinates: lateral and vertical positions, body orientation, and leg length, respectively; $m = 2$ controls: body moment, e.g., controlled with an internal reaction wheel, and leg force; and a single contact at the foot. 
+
+The centroidal-dynamics modeling assumption we make---consistent with Raibert's work---is to locate the leg and foot mass at the body's center of mass. This results in a configuration-independent mass matrix and no bias term in the dynamics. 
+
+The hopper is tasked with locomoting over unknown terrain. The CI-MPC policy uses a reference trajectory that is optimized with a flat surface and no incline. We compare our policy to the Raibert heuristic, which we similarly tune for flat ground and no incline. We observe that our policy is able to adapt to the varying surface heights that range from $0\mbox{-}24\:$cm and that the robot can slip multiple times and is able to recover while traversing steep inclines. We find that, when tuned well, the Raibert heuristic also works very well on terrains
+
+Additionally, we task the hopper with climbing a staircase and executing a front flip (Fig. \ref{cipc_hopper_parkour}). 
+
+\begin{figure}[H]
+	\begin{center}
+		\includegraphics[width=0.25\textwidth]{ci_pc/hopper_parkour_v1.png}
+	\end{center}
+	\caption[Hopper parkour]{Hopper performing parkour. The system tracks the body (orange) and foot (blue) reference trajectories while ascending three stairs before performing a front flip.}
+	\label{cipc_hopper_parkour}
+\end{figure}
+
+This complex trajectory cannot be directly executed using the Raibert heuristic as it is not a periodic hopping gait. Our policy, however, successfully tracks this complex trajectory, illustrating the more general capabilities of CI-MPC. Results are summarized in Table \ref{cipc_hopper_results}. 
+
+\begin{table}[H]
+	\centering
+	\caption[Comparison between CI-MPC and Raibert-heuristic policies for hopper locomotion and parkour]{Comparison between CI-MPC and the Raibert heuristic for a hopper system on 4 scenarios: flat, sinusoidal, and piecewise linear terrains; and a parkour stunt (Fig. \ref{cipc_hopper_parkour}). For each terrain profile, we report the number of hops achieved by the policy. For the parkour scenario, we report if the stunt is successfully completed.}
+	
+	\begin{tabular}{c c c c c}
+		\toprule
+		\textbf{Policy} &
+		\textbf{Flat} &
+		\textbf{Sinusoidal} &
+		\textbf{Piecewise} &
+		\textbf{Parkour}\\
+		\toprule
+		CI-MPC & $+100$ & $+100$ & $+100$ & \checkmark \\ 
+		Raibert & $+100$ & $+100$ & $+100$ & \ding{53} \\ 
+		\toprule
+	\end{tabular}
+	\label{cipc_hopper_results}
+\end{table}
+
+\paragraph{Planar quadruped.}
+We model a planar quadruped with $n_q = 11$ configuration variables and $m = 8$ control inputs. The system has four contacts, one at each point foot. 
+
+The quadruped is tasked with moving to the right over three different terrains: flat, sinusoidal, and piecewise-linear surfaces (Fig. \ref{cipc_quadruped_traj}). 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.48\textwidth]{ci_pc/quadruped.png}
+	\caption[Planar quadruped walking over uneven terrain]{Planar quadruped walking over uneven terrain. The reference gait is optimized for flat ground.  Our CI-MPC policy, with orange center-of-mass and blue foot position trajectories, is able to adapt online to the unmodeled variation in terrain and track the reference trajectory.}
+	\label{cipc_quadruped_traj}
+\end{figure}
+
+Additionally, we test the robustness of the CI-MPC policy by introducing model mismatch. We provide the policy with the nominal model of the quadruped while the simulator uses a quadruped with a $3$-kg payload, representing $25\%$ of its nominal mass. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.45\textwidth]{ci_pc/quadruped_payload_cardboard_red.png}
+	\caption[Planar quadruped locomotion with model mismatch]{Quadruped tracking a reference trajectory (red) while carrying an unmodeled $3$-kg payload. We depict the torso (orange) and front-left foot (blue) trajectories.}
+	\label{cipc_quadruped_payload}
+\end{figure}
+
+Despite the unmodeled load, the policy successfully tracks the nominal gait with good performance. 
+
+We note that the same CI-MPC policy was used across all quadruped experiments and no retuning was required to transfer from the nominal case (flat terrain, no payload) to more complex scenarios. Further, it is easy and intuitive to rapidly retune the policy in order to achieve improved tracking performance in the 
+other scenarios.
+
+\paragraph{Planar biped.}
+We model a planar biped based on Pratt's Spring Flamingo \cite{pratt2000thesis} with $n_q = 9$ configuration variables and $m = 7$ control inputs. The system is modeled with four contact points, one at the toe and heel of each foot.
+
+The biped is tasked with moving to the right over three different terrains: flat, sinusoidal, and piecewise-linear surfaces (Fig. \ref{cipc_biped_tracking}) using the same policy. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.45\textwidth]{ci_pc/flamingo_ghost.png}
+	\caption[Planar biped locomotion over unmodeled terrain]{Biped walking from left to right across flat (top), sinusoidal (middle), and piecewise linear (bottom) terrain using the same policy.}
+	\label{cipc_biped_tracking}
+\end{figure}
+
+In Table \ref{cipc_biped_results}, we compare this to Pratt's policy \cite{pratt2000thesis}, which relies on a state-machine architecture and a number of proportional-derivative controllers. 
+
+\begin{table}[H]
+	\centering
+	\caption[Comparison between CI-MPC and Pratt-heuristic policies for biped locomotion]{Comparison between CI-MPC and Pratt state-machine \cite{pratt2000thesis} policies for flamingo system on flat and inclined terrains. We report the number of steps taken by the robot on the flat terrain and compare the maximum incline traversed by our policy in simulation with reported results$^{\dagger}$ \cite{pratt1998intuitive}.}
+	
+	\begin{tabular}{c c c}
+		\toprule
+		\textbf{Policy} &
+		\textbf{Flat} &
+		\textbf{Incline}\\
+		\toprule
+		CI-MPC & $+100\phantom{^{\dagger}}$ & \boldmath $10$ \unboldmath \textbf{deg}. \\ 
+		Pratt & $+100^{\dagger}$ &  $ 5^{\dagger}$  deg. \\ 
+		\toprule
+	\end{tabular}
+	\label{cipc_biped_results}
+\end{table}
+
+Our CI-MPC policy---with no additional tuning---can easily walk on all of the terrains and reliably walks up inclines of up to ten degrees. Pratt reports that Spring Flamingo can only walk up inclines of five degrees without requiring the controllers to be re-tuned \cite{pratt1998intuitive}.
+
+\paragraph{Monte Carlo.}
+In order to assess the robustness of CI-MPC, we perform Monte Carlo analysis on two systems: the hopper and planar quadruped. The robots are tasked with tracking a reference gait and we initialize the systems with configurations that are randomly perturbed from the reference trajectory. We use 100 randomly sampled initial conditions for each system; the hopper recovers from significant orientation offsets and the quadruped is robust to large drops (Fig. \ref{cipc_monte_carlo}).
+
+\begin{figure}[t]
+	\begin{center}
+		\includegraphics[width=0.45\textwidth]{ci_pc/hopper_2D_monte_carlo.png}
+	\end{center}
+	\begin{center}
+		\includegraphics[width=0.45\textwidth]{ci_pc/quadruped_monte_carlo.png}
+	\end{center}
+	\caption[Monte Carlo CI-MPC policy test for hopper and planar quadruped]{Monte Carlo simulations of initial conditions for systems tracking a reference trajectory. 100 initial configurations are randomly sampled for a hopper (top) and quadruped (bottom). Perturbations from the reference initial configuration include large translations, tilts, and joint angles offsets. For all the samples, and both systems, the policy successfully recovers to the reference gait.}
+	\label{cipc_monte_carlo}
+\end{figure}
+
+\subsection{Hardware}
+In this section we present hardware results that demonstrate two capabilities of this work: 1) real-time performance of our algorithm on hardware 2) the robustness of CI-MPC policies to unmodeled disturbances. Three behaviors are executed on a Unitree Go1 quadruped \cite{unitree_go1}: first, a trotting gait that is robust to large external disturbances; second, a non-periodic motion where the system moves towards a wall before balance against it using its front feet; third, the system placing both of its feet onto a step.
+
+\paragraph{Point-foot model.}
+We utilize a simplified point-foot model of the quadruped that neglects leg dynamics. This model comprises 36 states which include the positions and velocities of the body and each foot. The orientation of the body is represented with Euler angles. The actions are three-dimensional forces applied to each foot, which is modeled as a point mass. Reference motions are generated offline with this model using contact-implicit trajectory optimization \cite{manchester2020variational}.
+
+The primary reason for these modeling simplifications is to reduce the online computational requirement when evaluating the dynamics and their derivatives while still being able to reason about new contact sequences online. Importantly, unlike traditional convex quadratic programming policies \cite{bledt2017policy}, which assume a fixed contact sequence for the feet, our model is contact-implicit and enables new foot-step sequences to be generated online. 
+
+\paragraph{Experimental setup.} 
+A reference trajectory generated offline is tracked online using CI-MPC. A pre-tuned low-level controller generates joint torques that aim to match the forces specified by the policy that should be applied by each leg at the foot.
+
+The CI-MPC policy is written in Julia and is precompiled in order to interface with an existing low-level controller and state estimator, written in C++, which utilize joint encoders, onboard IMU measurements, and motion-capture tracking for the body.
+
+The policy is run offboard with a computer equipped with an Intel i9-12900KS CPU and 64GB of memory. Communication with the quadruped is via an ethernet connection. The low-level leg controller runs at 1000 Hz. Additional information is provided in Table \ref{cipc_hardware_timing_table}.
+
+\begin{table}[H]
+	\centering
+	\caption[Unitree Go1 quadruped hardware experiment details]{Hardware experiments with CI-MPC tracking different reference trajectories on a Unitree Go1 quadruped.}
+	\begin{tabular}{c c c c}
+		\toprule
+		\textbf{Settings}  & \textbf{Trotting} & \textbf{Wall} & \textbf{Step}\\
+		\toprule
+		reference trajectory length & $0.8$ s & $19.75$ s & $7.0$ s \\
+		reference time step & $0.05$ s & $0.05$ s & $0.05$ s\\
+		policy planning horizon & $0.15$ s & $0.1$ s  & $0.1$ s\\
+		policy rate & $100$ Hz & $100$ Hz & $100$ Hz\\
+		\toprule
+	\end{tabular}
+	\label{cipc_hardware_timing_table}
+\end{table}
+
+\paragraph{Trotting.}
+In this example, the specified behavior is trotting in place (Fig. \ref{cipc_quadruped_hardware_trot}). 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=3.85cm]{ci_pc/cipc_quadruped_trot_push_blur.png}
+	\caption[Unitree Go1 stable trotting while being pushed]{Unitree Go1 stable trotting while being pushed.}
+	\label{cipc_quadruped_hardware_trot}
+\end{figure}
+The reference trajectory is 0.8 seconds and is repeated to form a continuous gait. The policy planning horizon is 0.15 seconds and the model uses a time discretization of 0.05 seconds. The policy runs at an average rate 100 Hz. 
+
+\paragraph{Wall stand.}
+In this example, the specified behavior is transitioning from four feet on the ground to standing against the wall with two feet (Fig. \ref{cipc_quadruped_hardware_wall}). 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=3.85cm]{ci_pc/cipc_quadruped_wallstand_blur.png}
+	\caption[Unitree Go1 transitioning from ground to standing against a wall]{Unitree Go1 transitioning from ground to standing against a wall.}
+	\label{cipc_quadruped_hardware_wall}
+\end{figure}
+The reference trajectory is 19.75 seconds. The policy planning horizon is 0.1 seconds and the model uses a time discretization of 0.05 seconds. The policy runs at an average rate of 100 Hz. 
+
+\paragraph{Step.}
+In this example, the specified behavior has the quadruped place its right foot onto a step, followed by its left foot (Fig. \ref{cipc_quadruped_hardware_step}). 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=3.85cm]{ci_pc/cipc_quadruped_step_blur.png}
+	\caption[Unitree Go1 placing two feet onto a step]{Unitree Go1 placing two feet onto a step.}
+	\label{cipc_quadruped_hardware_step}
+\end{figure}
+The entire reference trajectory is 7.0. The policy planning horizon is 0.1 seconds and the model uses a time discretization of 0.05 seconds. The policy runs at an average rate of 100 Hz. 
+
+\section{Limitations} \label{cipc_limitations}
+CI-MPC is capable of generating dynamic behaviors by robustly tracking reference trajectories through contact despite disturbances, model mismatch, and uncertain environments. Additionally, we demonstrate that these policies are capable of generating new contact sequences online that are qualitatively distinct from their reference trajectory. 
+
+An important approximation we make for the online trajectory optimization problem is using strategically approximated contact dynamics for planning. This enables expensive gradient computations and partial matrix factorizations to be performed in an offline stage, in order to substantially reduce online computation. Despite the approximations introduced by these simplifications, in practice, the controls optimized for the fast contact dynamics work well in simulation and on hardware. However, it remains to be seen how well these approximations work for control highly dynamic behaviors, particularly on hardware.
+
+The physics of hard contact produces non-smooth and discontinuous gradients. With our custom interior-point method, we can efficiently compute smooth gradients in a principled way by exploiting intermediate results, parameterized by the central-path parameter, from the contact dynamics solver. Hard contact is simulated by returning results from the contact dynamics solver with a central-path value $\kappa_{\mbox{sim}} = 1\mbox{e-}6$, whereas gradients are computed using intermediate results from the solve parameterized by $\kappa_{\mbox{grad}} = 1\mbox{e-}4$. In the CI-MPC policy, the central-path value is fixed to gradient central-path value in order to reduce online computation. This selection was made empirically to balance capturing accurate physics with producing usefully smooth gradients. We prioritize fast updates by solving the trajectory-tracking problem to coarse tolerances. In this context, imposing very accurate physics would be wasteful in terms of computational resources.  Additionally, we observed that using smoother gradients enhanced the convergence of the trajectory-tracking solver and likely enables the policy to more easily discover new contact sequences. However, despite the ability to simulate hard contact reliably, the planning model ultimately utilizes a (somewhat) soft contact model. This raises the question, is simulation of hard contact actually necessary, or useful, for reliable control of non-smooth systems?
+
+In the examples, we compare our policy to a number of system-specific control strategies. We note that these heuristics work quite well on the particular system for which they were designed, but that the approaches do not necessarily generalize to other systems. For example, the Raibert hopping controller does not transfer to the pushbot push-recovery scenario and the Spring Flamingo walking controller is not directly applicable to the quadruped. In contrast to these system-specific approaches, CI-MPC is successfully deployed to all the systems in this work. Similar to the ability of linear MPC to track a reference trajectory for a wide range of systems with smooth dynamics, CI-MPC is able to track reference trajectories for a variety of systems with non-smooth dynamics that make and break contact with their environments. 
+
+In our hardware experiments, we utilized a simplified planning model for the quadruped. However, we believe that similar point-contact models easily extend to bipeds and humanoids systems, potentially even dexterous hands. Validation of this generalization remains for future work.
+
+Contact-implicit trajectory optimization \cite{posa2014direct, manchester2020variational} is notorious for poor convergence properties, despite typically relying on robust large-scale constrained solvers for non-convex problems and even good warm starting. As a result, MPC with \textit{nonlinear} contact dynamics is generally impractical. In this work, we demonstrate that contact-implicit MPC can be reliable, by utilizing selectively approximated contact dynamics; converging despite disturbances and initial conditions with large offsets. In practice, we find that the one-step contact dynamics problem reliably converges, largely enabled by a numerically robust interior-point method. Additionally, our bilevel-optimization approach for MPC abstracts the lower-level contact dynamics inequality and complementarity constraints away from the upper-level trajectory optimization problem, significantly improving convergence behavior. Ultimately, for CI-MPC to be of practical value, generation of references trajectories, even in the offline setting must be improved. This may be possible with specialized solvers for contact-implicit trajectory optimization, alterative rollout-based methods that leverage the reliability of one-step contact dynamics, or entirely different approaches such as reinforcement learning.
+
+Finally, our hardware experiments demonstrate the real-time capabilities of CI-MPC and its ability to be robust in many scenarios. In practice, we find that the classic convex quadratic program policy \cite{bledt2017policy} is significantly more robust for general locomotion. Additional improvements to CI-MPC, in particular, increase its speed and reliability will be necessary to match the performance of this existing baseline policy.
+
+\section{Future Work} \label{cipc_future_work}
+In summary, we have presented fast differentiable contact dynamics that can be utilized in an MPC framework that performs robust tracking for robotic systems that make and break contact with their environments. There remain many exciting avenues to explore in future work. First, it should be possible to perform higher-fidelity convex approximations of the contact dynamics that utilize second-order friction cones instead of its linearized approximation. This could enable tracking of highly dynamic behaviors that leverage sliding contacts. A natural extension of this work, which was focused on locomotion, is to the manipulation domain, potentially with quasi-static models, where control through contact is similarly an open problem, but where dynamics are slower and more amenable to online optimization. Next, a library of template behaviors, comprising CI-MPC policies, could be composed to enable more diverse behavior online with a high-level agent composing templates in a task-and-motion-planning framework in order to generate complex long-horizon plans.
+
+\section*{Acknowledgments}
+This work was supported in part by Frontier Robotics, Innovative Research Excellence, Honda R\&D Co., Ltd, ONR award N00014-18-1-2830, NSF NRI award 1830402, and DARPA YFA award D18AP00064. Toyota Research Institute (TRI) provided funds to assist the authors with their research but this article solely reflects the opinions and conclusions of its authors and not TRI or any other Toyota entity. 
+
+\section{Appendix: Structure-Exploiting $\mbox{LDL}$ Solver}
+We use a block-elimination approach \cite{wang2009fast} to solve \eqref{cipc_trajopt_kkt}. First, the Schur complement,
+\begin{equation}
+	Y = C (\nabla^2 J)^{-1} C^T = \begin{bmatrix} Y_{11} & Y_{12} & 0 & 0 \\ 
+		Y_{21} & Y_{22} & Y_{23} & 0 \\ 
+		0 & Y_{32} & Y_{33} & \hdots \\
+		0 & 0 & \vdots & \ddots \end{bmatrix},
+\end{equation}
+is formed blockwise,
+\begin{align}
+	Y_{11} &= B_1 R_1^{-1} B_1^T, \\
+	Y_{tt} &= B_t R_t^{-1} B_t^T + A_t P_t^{-1} A_t^T + P_{t+1}^{-1}, \\
+	&\quad t = 2, \cdots, T-1, \nonumber\\
+	Y_{t,t+1} &= {Y_{t+1,t}}^T = -P_{t+1}^{-1} A_{t+1}^T, \quad t = 1, \cdots, T-2.
+\end{align}
+Next, a Cholesky factorization, $Y = L^T L$, is similarly performed blockwise,
+\begin{align}
+	L_{11} L_{11}^T &= Y_{11} \\
+	L_{tt} L_{t+1,t}^T &= Y_{t, t+1}, \, \quad \quad \quad \quad \quad \quad t = 1, \cdots, T-1, \\
+	L_{tt} L_{tt}^T &= Y_{tt} - L_{t,t-1} L_{t,t-1}^T, \quad t = 2, \cdots, T-1.
+\end{align}
+Finally, block elimination is utilized to solve, 
+\begin{align}
+	\Delta \nu &= Y^{-1} \Big(C (\nabla^2 J)^{-1} (\nabla J + C^T \nu) - d \Big), \\
+	\Delta \tau &= (\nabla^2 J)^{-1} \Big(\nabla J + C^T \nu  - C^T \Delta \nu \Big).
+\end{align}
+Without exploiting the sparsity structure of the trajectory optimization problem, the complexity of solving this linear system (\ref{ci_pc_trajopt}) with a generic $\mbox{LDL}$ factorization is $O \Big(\frac{1}{3}T^3 (4n + m)^3 \Big)$, while this specialized solver has an overall complexity: $O \Big(T(8n^3 + n^2 m) \Big)$.
