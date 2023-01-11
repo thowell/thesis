@@ -55,7 +55,7 @@ and then we solve for $\delta x_{t+1}$:
 The Jacobians:
 \begin{align}
 	\frac{\partial x_{t+1}}{\partial x_t} &= -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \frac{\partial f_t}{\partial x_t}, \\
-	\frac{\partial x_{t+1}}{\partial u_t} &= -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \frac{\partial f_t}{\partial u_t}. \label{od_implicit_integrator_jacobians}
+	\frac{\partial x_{t+1}}{\partial u_t} &= -\Big(\frac{\partial f_t}{\partial x_{t+1}}\Big)^{-1} \frac{\partial f_t}{\partial u_t}, \label{od_implicit_integrator_jacobians}
 \end{align}
 are returned at each time step.
 
@@ -97,7 +97,7 @@ The complete algorithm is summarized in Algorithm \ref{od_ip_algo} and we provid
 \begin{algorithm}[H]
 	\caption{Differentiable Interior-Point Method}\label{od_ip_algo}
 	\begin{algorithmic}[1]
-		\Procedure{OPTIMIZE}{$z, \theta$}
+		\Procedure{Optimize}{$z, \theta$}
 		\State \textbf{Parameters}: $\beta = 0.5, \gamma = 0.1$,
 		\State \indent $\epsilon_{\mu} = 10^{-4}, \epsilon_{r} = 10^{-8}$
 		\State \textbf{Initialize}: $z \in \mathcal{K}$, $\lambda = 0, \nu \in \mathcal{K}^*, \mu = 1.0, w_{\mu} = \{\}$
@@ -152,14 +152,14 @@ The unconstrained system violates joint limits, while the joint-limited system r
 
 \begin{table}[H]
 	\centering
-	\caption[Numerical results for acrobot swing-up]{Comparison of objective, iterations, goal constraint violation, and solve time between MuJoCo and optimization-based dynamics with nominal and joint-limited models for acrobot. When limited, the MuJoCo model violates the joint limits and fails at the swing-up task.}
+	\caption[Numerical results for acrobot swing-up]{Comparison of objective, iterations, goal constraint violation, and solve time between MuJoCo and optimization-based dynamics (OD) with nominal and joint-limited models for acrobot. When limited, the MuJoCo model violates the joint limits and fails at the swing-up task.}
 	\begin{tabular}{c c c c c}
 		\toprule
 		&
 		\textbf{MuJoCo} &
 		\textbf{MuJoCo (limited)} &
-		\textbf{Ours} &
-		\textbf{Ours (limited)} \\
+		\textbf{OD} &
+		\textbf{OD (limited)} \\
 		\toprule
 		objective & 395.6 & 1.9e{6} & 48.9 & 84.2 \\
 		iterations & 207  & 95 & 256 & 907 \\
@@ -228,17 +228,16 @@ We find that our implicit approach requires fewer, but more expensive iterations
 
 \begin{table}[H]
 	\centering
-	\caption[Numerical results for hopper gait]{Comparison between contact-implicit trajectory optimization (direct) and optimization-based dynamics + iLQR (ours) for hopper-gait examples. The objective, iterations, gait constraint violation, and solve times are compared.}
-	\small
+	\caption[Numerical results for hopper gait]{Comparison between contact-implicit trajectory optimization (CI) and optimization-based dynamics + iLQR (OD) for hopper-gait examples. The objective, iterations, gait constraint violation, and solve times are compared.}
 	\begin{tabular}{c c c c c c c}
 		\toprule
 		&
-		\textbf{Direct (1)} &
-		\textbf{Direct (2)} &
-		\textbf{Direct (3)} &
-		\textbf{Ours (1)} &
-		\textbf{Ours (2)} &
-		\textbf{Ours (3)} 
+		\textbf{CI (1)} &
+		\textbf{CI (2)} &
+		\textbf{CI (3)} &
+		\textbf{OD (1)} &
+		\textbf{OD (2)} &
+		\textbf{OD (3)} 
 		\\
 		\toprule
 		objective & 3.5 & 20.4 & 2.9 & 3.5 & \textbf{19.8} & \textbf{2.4} \\
@@ -276,7 +275,7 @@ The system has $n = 12$ states and $m = 3$ controls that are first projected usi
 The optimizer requires 547 iterations and takes 8.1 seconds to find a plan that successfully reorients the rocket prior to landing while respecting the thrust constraints. Without the cone constraint, the optimizer requires 521 iterations and 1.9 seconds to find a solution. However, the thrust cone constraint is violated at the first time steps. The optimized position trajectory is shown in Fig. \ref{od_rocket_ghost}.
 
 \subsection{Planar push}
-For the canonical manipulation problem of planar pushing \cite{hogan2016feedback}, we optimize the positions and forces of a robotic manipulator's circular end-effector in order to slide a planar block into an reoriented goal pose (Fig.~\ref{od_planar_push}).
+For the canonical manipulation problem of planar pushing \cite{hogan2016feedback}, we optimize the positions and forces of a robotic manipulator's circular end-effector in order to slide a planar block into a reoriented goal pose (Fig.~\ref{od_planar_push}).
 
 \begin{figure}[H]
 	\centering
@@ -289,11 +288,11 @@ The system's end-effector is modeled as a fully actuated particle in 2D that can
 
 The system has $n = 10$ states, $m = 2$ controls, the planning horizon is $T = 26$, and the time step is $h = 0.1$. We initialize the end-effector with a control input that overcomes stiction to move the block. The block is initialized at the origin with the pusher in contact on its left side, and the block is constrained at the trajectory-level to reach a goal pose.
 
-We compare the smooth gradients returned by differentiating through our interior-point solver with randomized smoothing to generate a zero-order gradient bundle \cite{suh2022bundled}. We use $N=100$ samples and noise sampled from a zero-mean unit Gaussian with scaling $\sigma=1.0e\mbox{-}4$. Ultimately, we find that both approaches result in similar convergence behavior of the upper-level optimizer. However, the gradient-bundle approach necessitates parallel computation of dynamics evaluations (which we do not explore in our comparison) in order to be a tractable approach, whereas the implicit-function theorem is much more efficient in a serial-computational setting. Results are provided in Table \ref{od_planarpush_results}.
+We compare the smooth gradients returned by differentiating through our interior-point solver with randomized smoothing to generate a zero-order gradient bundle \cite{suh2022bundled}. We use $100$ samples and noise sampled from a zero-mean unit Gaussian with scaling $\sigma=1.0e\mbox{-}4$. Ultimately, we find that both approaches result in similar convergence behavior of the upper-level optimizer. However, the gradient-bundle approach necessitates parallel computation of dynamics evaluations (which we do not explore in our comparison) in order to be a tractable approach, whereas the implicit gradients are much more efficient in a serial-computational setting. Results are provided in Table \ref{od_planarpush_results}.
 
 \begin{table}[H]
 	\centering
-	\caption[Gradient comparison between implicit gradients and gradient bundles for planar-push task]{Comparison between gradients generated as zero-order gradient bundles and via the implicit-function theorem for planar-push translation (T) and rotation (R) tasks. $^*$Gradient bundles are evaluated serially.}
+	\caption[Gradient comparison between implicit gradients and gradient bundles for planar-push task]{Comparison between gradients generated as zero-order gradient bundles and via implicit differentiation for planar-push translation (T) and rotation (R) tasks. $^*$Gradient bundles are evaluated serially.}
 	\begin{tabular}{c c c c c}
 		\toprule
 		&

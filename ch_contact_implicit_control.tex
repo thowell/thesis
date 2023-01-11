@@ -25,7 +25,7 @@ Our contributions are:
 	\item A collection of simulation and hardware experiments demonstrating the performance of CI-MPC on a variety of robotic systems across a range of highly dynamic tasks
 \end{itemize}
 
-In the remainder of this paper, we first review related work on control through contact with MPC, as well as complementarity-based contact dynamics in Section \ref{cipc_related_work}. Next, we present a brief overview of MPC, outline the classic complementarity formulation for contact dynamics, and provide background on interior-point methods and implicit differentiation in Section \ref{cipc_background}. Then, we present CI-MPC in Section \ref{cimpc}. Results are presented in Section \ref{cipc_results} including both simulation and hardware experiments. Finally, we discuss our results, limitations of this approach in Section \ref{cipc_limitations} and potential directions for future work in Section \ref{cipc_future_work}.
+In the remainder of this chapter, we first review related work on control through contact with MPC, as well as complementarity-based contact dynamics in Section \ref{cipc_related_work}. Next, we present a brief overview of MPC, outline the classic complementarity formulation for contact dynamics, and provide background on interior-point methods and implicit differentiation in Section \ref{cipc_background}. Then, we present CI-MPC in Section \ref{cimpc}. Results are presented in Section \ref{cipc_results} including both simulation and hardware experiments. Finally, we discuss our results, limitations of this approach in Section \ref{cipc_limitations} and potential directions for future work in Section \ref{cipc_future_work}.
 
 \section{Related Work} \label{cipc_related_work}
 In this section, we review related work on MPC for the control of dynamical systems that make and break contact with their environments and provide an overview of complementarity-based contact dynamics.
@@ -259,7 +259,7 @@ and then solve for the search directions:
 \end{align}
 Additionally, $E^{-1}$, $G E^{-1}$, and $G E^{-1} F$ are precomputed offline. Finally, after solving for $\Delta \tilde{w}$, we obtain $\Delta z$ with cheap vector-vector operations (\ref{cipc_delta_w3}).
 
-For a system with configuration dimension $n_q$ and $c$ contact points, the computational complexity of solving (\ref{cipc_naive_solve}) with a naive approach is $O\Big((n_q+2cd)^3 \Big)$. Our structure-exploiting approach is $O(8c^3d^3)$ during the online phase. In practice, this provides a factor of 15 speed-up, compared to LAPACK LU, for evaluating the LCP dynamics across all the robotic systems presented in this paper and, in turn, results in a factor of 2.5 speed-up for CI-MPC.
+For a system with configuration dimension $n_q$ and $c$ contact points, the computational complexity of solving (\ref{cipc_naive_solve}) with a naive approach is $O\Big((n_q+2cd)^3 \Big)$. Our structure-exploiting approach is $O(8c^3d^3)$ during the online phase. In practice, this provides a factor of 15 speed-up, compared to LAPACK LU, for evaluating the LCP dynamics across all the robotic systems presented in this chapter and, in turn, results in a factor of 2.5 speed-up for CI-MPC.
 
 \subsection{Gradients}
 Contact dynamics gradients are computed by differentiating through the LCP problem with respect to data: $\theta = (q_{--}, q_{-}, u)$, which could also include the time step, friction coefficients, and other system values like masses or inertia terms. 
